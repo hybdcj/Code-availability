@@ -1,0 +1,3 @@
+openpyxl==3.1.5
+# Only analysis/core/15_measurement_lock.py requires this package.
+# Repository preparation/checking tools use the Python standard library.
