@@ -4,7 +4,7 @@
 
 整理时检查环境为 Windows、R 4.6.1。R 包版本记录于 `environment/r-packages.csv`，这是整理当日的已安装版本快照，不代表每次历史分析实际使用的版本，也不是锁定全部传递依赖的 renv.lock。`install_dependencies.R` 安装缺少的直接依赖，不强制降级现有包。若需版本一致，请依据快照另建隔离环境。
 
-Python 辅助工具使用标准库；测量汇总脚本另需 openpyxl，版本见 requirements.txt。中文路径及 UTF-8 编码需可用；原 R 脚本包含 Windows 中文 locale 设置。TIFF 绘图依赖 ragg，部分历史图件使用 SimSun 字体；其他操作系统需调整 locale/字体。不要未经验证声称跨平台运行一致。
+Python 辅助工具需要 Python 3.10 或以上并使用标准库；测量汇总脚本另需 openpyxl，版本见 requirements.txt。中文路径及 UTF-8 编码需可用；原 R 脚本包含 Windows 中文 locale 设置。TIFF 绘图依赖 ragg，部分历史图件使用 SimSun 字体；其他操作系统需调整 locale/字体。不要未经验证声称跨平台运行一致。
 
 ## 2. 配置路径
 
