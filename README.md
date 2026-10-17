@@ -24,8 +24,8 @@ Analysis code for a memory low-score risk model in community-dwelling middle-age
 ## 最快开始
 
 ```powershell
-git clone https://github.com/hybdcj/Data-availability.git
-cd Data-availability
+git clone https://github.com/hybdcj/Code-availability.git
+cd Code-availability
 python tools/verify_sources.py
 Copy-Item config.example.json config.local.json
 # 编辑 config.local.json，使用一个专门的复现工作目录和本机实际 R 库路径
