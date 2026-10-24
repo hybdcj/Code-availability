@@ -4,9 +4,9 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-PROJ = Path(r'D:\BaiduSyncdisk\科研\徐中豪')
-IN = PROJ / 'output' / '05_测量等价比'
-OUT = PROJ / 'output' / '08_方案与交付'
+PROJ = Path(r'D:\BaiduSyncdisk\research\Xu_Zhonghao')
+IN = PROJ / 'output' / '05_measurement_equivalence_ratio'
+OUT = PROJ / 'output' / '08_plan_and_deliverables'
 
 def read_csv(name):
     with open(IN / name, encoding='utf-8-sig', newline='') as f:
@@ -50,17 +50,17 @@ with open(OUT / 'T09_measurement_key_numbers_2026-09-20.csv', 'w', encoding='utf
     wr.writerows(key_rows)
 
 # Chinese Methods
-methods_zh = f'''# T09 Methods 段落（中文草稿）
+methods_zh = f'''# T09 Methods paragraph(Chinese draft)
 
-认知功能使用五波均可比的10项共同题集评估，包括定向5项（年、月、日期、星期、季节）和连续减7五步。各项目正确计1分，总分0–10分。主要纵向结局使用该共同总分；二分类认知受损按2011年教育分层固定切点定义，以避免各波重新计算切点造成阈值漂移。
+cognition assessed using comparable five wave 10 item common set, including orientation 5 items(year, month, date, day of week, season)and serial subtraction of 7 five steps.each correct item scores 1 points, total score 0–10 points.primary longitudinal outcome uses common total score; binary cognitive impairment based on 2011 year education specific fixed cutoff, to avoid threshold drift from wave specific recalculation.
 
-由于2018年认知模块和记忆词表存在差异，本研究未将记忆词、画图等项目合并为0–31分总分进行纵向比较，而是使用五波项目一致的0–10分共同题集。为评估该共同题集的跨波可比性，研究逐波报告逐题完整性和正确率，并以验证性因子分析比较2011–2013、2013–2015、2015–2018和2018–2020的形态等值与标量等值模型。测量等值性以ΔCFI和ΔRMSEA辅助判断，而不是仅依据卡方检验。全波CFA在五波逐题完整者n=5,359中进行。
+because 2018 year cognitive modules and word lists differ, study does not combine memory words, figure copying and related items into 0–31 point total for longitudinal comparisons, instead uses consistent items across five waves 0–10 point common item set.to assess cross wave comparability of common items, report item completeness and correct response rates by wave, compare using confirmatory factor analysis 2011–2013, 2013–2015, 2015–2018 and 2018–2020 configural and scalar invariance models.measurement invariance assessed using ΔCFI and ΔRMSEA as supporting evidence, not solely chi squared tests.all waves CFA among participants complete on all five wave items n=5,359 performed in.
 
-在2011年≥45岁、五波ms10均可计分的固定队列中，共{main_n}人。2015→2018共同题集平均变化为{main['change_2015_2018']}分（95%CI {main['ci_2015_2018'].replace(' to ', ' 至 ')}）；仅保留2018年满60岁者为{age60['change_2015_2018']}分（95%CI {age60['ci_2015_2018'].replace(' to ', ' 至 ')}）；进一步要求2018年记忆题完整者为{age60mem['change_2015_2018']}分（95%CI {age60mem['ci_2015_2018'].replace(' to ', ' 至 ')}）。三种样本的结果方向一致，提示下降不太可能仅由2018年60岁以下受试者的模块差异造成。
+at 2011 year≥45 years old, five waves ms10 in fully scorable fixed cohort, total{main_n}participants.2015→2018 mean change in common item score is{main['change_2015_2018']}points(95%CI {main['ci_2015_2018'].replace(' to ', ' to ')}); retain only 2018 aged at least 60 participants above age number{age60['change_2015_2018']}points(95%CI {age60['ci_2015_2018'].replace(' to ', ' to ')}); further require 2018 year complete memory participants are{age60mem['change_2015_2018']}points(95%CI {age60mem['ci_2015_2018'].replace(' to ', ' to ')}).three samples show consistent direction, decline unlikely explained solely by 2018 year 60 module differences among younger participants.
 
-2015→2018相邻波的标量等值模型变化为ΔCFI={pair1518['delta_cfi']}、ΔRMSEA={delta_rmsea_1518}；未超过常用实质性非等值阈值。但部分CFA模型出现负方差警告，因此结果应表述为“未发现足以推翻共同题总分的非等值证据”，不能写成“已证明完全等值”。
+2015→2018 changes in adjacent wave scalar invariance models are ΔCFI={pair1518['delta_cfi']}, ΔRMSEA={delta_rmsea_1518}; below conventional substantive noninvariance thresholds.but some CFA models show negative variance warnings, therefore describe results as“no noninvariance evidence sufficient to invalidate common total score”, must not describe as“complete equivalence proven”.
 
-记忆分因第4轮词表内容和学习试次数与前几轮不同，可能影响延迟回忆成绩，因此仅作描述性报告；如需纵向比较，应先按等百分位等分或限定同一词表波次。
+memory scores affected by round 4 word lists and learning trial counts differ from earlier rounds, may influence delayed recall, therefore report descriptively only; for longitudinal comparisons, first apply equipercentile equating or restrict to identical word lists.
 '''
 (OUT / 'T09_methods_zh_2026-09-20.md').write_text(methods_zh, encoding='utf-8')
 
@@ -70,7 +70,7 @@ Cognitive function was assessed using a 10-item common score that was available 
 
 Because the broader cognitive module and memory word lists differed in 2018, memory and drawing items were not combined with the common items into a 0–31 global score for longitudinal comparison. Measurement comparability of the common score was evaluated using item-level completeness, item-level changes, and multiple-group confirmatory factor analysis across adjacent waves and from 2011 to 2020. Configural and scalar invariance models were compared using ΔCFI and ΔRMSEA rather than relying on χ² tests alone. The all-wave CFA was conducted among 5,359 participants with complete item-level data.
 
-The fixed cohort comprised {main_n} participants aged ≥45 years in 2011 with the common score available at all five waves. The mean 2015-to-2018 change in the common score was {main['change_2015_2018']} points (95% CI {main['ci_2015_2018'].replace(' 至 ', ' to ')}). The corresponding change was {age60['change_2015_2018']} (95% CI {age60['ci_2015_2018'].replace(' 至 ', ' to ')}) among participants aged ≥60 years in 2018 and {age60mem['change_2015_2018']} (95% CI {age60mem['ci_2015_2018'].replace(' 至 ', ' to ')}) among those who also had complete memory items. The consistency of these estimates suggested that the observed decline was unlikely to be solely attributable to the age-restricted 2018 module.
+The fixed cohort comprised {main_n} participants aged ≥45 years in 2011 with the common score available at all five waves. The mean 2015-to-2018 change in the common score was {main['change_2015_2018']} points (95% CI {main['ci_2015_2018'].replace(' to ', ' to ')}). The corresponding change was {age60['change_2015_2018']} (95% CI {age60['ci_2015_2018'].replace(' to ', ' to ')}) among participants aged ≥60 years in 2018 and {age60mem['change_2015_2018']} (95% CI {age60mem['ci_2015_2018'].replace(' to ', ' to ')}) among those who also had complete memory items. The consistency of these estimates suggested that the observed decline was unlikely to be solely attributable to the age-restricted 2018 module.
 
 For the 2015-to-2018 comparison, scalar invariance was associated with ΔCFI={pair1518['delta_cfi']} and ΔRMSEA={delta_rmsea_1518}, which did not exceed conventional thresholds for substantial non-invariance. However, some CFA models produced negative-variance warnings. Therefore, the results should be interpreted as showing no evidence sufficient to invalidate the common score, rather than as definitive proof of full measurement equivalence.
 
@@ -78,38 +78,38 @@ Memory scores were reported descriptively only because word-list content and lea
 '''
 (OUT / 'T09_methods_en_2026-09-20.md').write_text(methods_en, encoding='utf-8')
 
-lock = f'''# T09：2018 测量差异说明与共同题集锁定（2026-09-20）
+lock = f'''# T09: 2018 measurement differences and common item set lock(2026-09-20)
 
-## 一、最终锁定口径
+## one, final locked definition
 
-- 主认知分数：定向5项 + 连续减7五步，总分0–10；
-- 主纵向结局：共同题集 `ms10`；
-- 二分类受损：2011年教育分层固定切点；
-- 2018期不将0–31分总分用于五波纵向主结论；
-- 记忆分只作描述性/补充分析。
+- primary cognitive score: orientation 5 items + serial subtraction of 7 five steps, total score 0–10; 
+- primary longitudinal outcome: common item set `ms10`; 
+- binary impairment: 2011 year education specific fixed cutoff; 
+- 2018 wave does not use 0–31 point total for main five wave longitudinal conclusions; 
+- memory score descriptive only/supplementary analysis.
 
-## 二、关键结果
+## two, key results
 
-- 固定队列：{main_n}人；全波CFA逐题完整样本：5,359人；
-- 2015→2018：{main['change_2015_2018']}分（95%CI {main['ci_2015_2018'].replace(' to ', ' 至 ')}）；
-- 2018年满60岁：{age60['change_2015_2018']}分（95%CI {age60['ci_2015_2018'].replace(' to ', ' 至 ')}）；
-- 2018年满60岁且记忆完整：{age60mem['change_2015_2018']}分（95%CI {age60mem['ci_2015_2018'].replace(' to ', ' 至 ')}）；
-- 2015→2018 CFA：ΔCFI={pair1518['delta_cfi']}，ΔRMSEA={delta_rmsea_1518}。
+- fixed cohort: {main_n}participants; all waves CFA item complete sample: 5,359 participants; 
+- 2015→2018: {main['change_2015_2018']}points(95%CI {main['ci_2015_2018'].replace(' to ', ' to ')}); 
+- 2018 aged at least 60 years old: {age60['change_2015_2018']}points(95%CI {age60['ci_2015_2018'].replace(' to ', ' to ')}); 
+- 2018 aged at least 60 age eligible and complete memory: {age60mem['change_2015_2018']}points(95%CI {age60mem['ci_2015_2018'].replace(' to ', ' to ')}); 
+- 2015→2018 CFA: ΔCFI={pair1518['delta_cfi']}, ΔRMSEA={delta_rmsea_1518}.
 
-## 三、允许的写法
+## three, permitted wording
 
-- “未发现足以推翻共同题总分的测量非等值证据”；
-- “相邻波标量等值模型的ΔCFI和ΔRMSEA未超过常用实质性阈值”；
-- “2018年模块差异未单独解释主要下降”。
+- “no measurement noninvariance evidence sufficient to invalidate common total score”; 
+- “adjacent wave scalar invariance model ΔCFI and ΔRMSEA below conventional substantive thresholds”; 
+- “2018 year module differences alone do not explain primary decline”.
 
-## 四、禁止的写法
+## four, prohibited wording
 
-- 不得写“已证明完全测量等值”；
-- 不得把CFA的负方差警告隐藏；
-- 不得把记忆轨迹作为主要纵向结论；
-- 不得把0–31分总分与0–10分共同题集混用。
+- must not state“complete measurement equivalence demonstrated”; 
+- do not treat CFA hide negative variance warnings; 
+- memory trajectories must not be main longitudinal conclusions; 
+- do not treat 0–31 point total and 0–10 point common set are not interchangeable.
 
-## 五、对应文件
+## five, corresponding files
 
 - `T09_methods_zh_2026-09-20.md`
 - `T09_methods_en_2026-09-20.md`
@@ -120,16 +120,16 @@ lock = f'''# T09：2018 测量差异说明与共同题集锁定（2026-09-20）
 
 # Clean valid Excel supplement.
 wb = Workbook()
-ws = wb.active; ws.title = '说明'
-ws.append(['项目', '内容'])
+ws = wb.active; ws.title = 'notes'
+ws.append(['project', 'content'])
 notes = [
-    ('分析对象', '2011年≥45岁、五波ms10均可计分的固定队列'),
-    ('主结局', '定向5题+连续减7，总分0–10；二分类受损使用2011年教育分层固定切点'),
-    ('共同题集', '10个项目在五波均纳入；逐题完整性、逐题变化和CFA用于评估可比性'),
-    ('2018期处理', '2018年较广认知模块和记忆词表有变化；不使用0–31总分作为纵向主结局'),
-    ('测量等值性', 'CFA未发现实质性非等值证据，但部分模型有负方差警告，不能声称已证明完全等值'),
-    ('记忆分处理', '记忆分仅描述性报告；原始纵向记忆分受词表内容和学习试次变化影响'),
-    ('结论边界', 'CHARLS不是手术队列；本材料只支持术前相关认知测量，不推断术后结局'),
+    ('analysis participants', '2011 year≥45 years old, five waves ms10 fully scorable fixed cohort'),
+    ('primary outcome', 'orientation 5 questions+serial subtraction of 7, total score 0–10; binary impairment uses 2011 year education specific fixed cutoff'),
+    ('common item set', '10 items included in all five waves; item completeness, item change and CFA used to assess comparability'),
+    ('2018 wave handling', '2018 year broader cognitive module and word list changed; do not use 0–31 total score as primary longitudinal outcome'),
+    ('measurement invariance', 'CFA no substantive noninvariance detected, but some models have negative variance warnings, cannot claim complete equivalence proven'),
+    ('memory score handling', 'memory scores reported descriptively only; raw longitudinal memory affected by word lists and learning trials'),
+    ('scope of conclusions', 'CHARLS not a surgical cohort; supports preoperative related cognitive measurement only, no inference about postoperative outcomes'),
 ]
 for row in notes: ws.append(row)
 
@@ -159,26 +159,26 @@ def add_csv_sheet(name, rows):
     for r in rows:
         s.append([display_cell(h, r.get(h, '')) for h in headers])
 
-add_csv_sheet('样本敏感性', common_sens)
-add_csv_sheet('逐题变化', item_change)
-add_csv_sheet('CFA_全波', cfa_all)
-add_csv_sheet('CFA_相邻波', cfa_pairs)
-add_csv_sheet('记忆计分', memory_schemes)
-add_csv_sheet('记忆描述', memory_desc)
+add_csv_sheet('sample sensitivity', common_sens)
+add_csv_sheet('item specific change', item_change)
+add_csv_sheet('CFA_all waves', cfa_all)
+add_csv_sheet('CFA_adjacent waves', cfa_pairs)
+add_csv_sheet('memory scoring', memory_schemes)
+add_csv_sheet('memory description', memory_desc)
 
-ws = wb.create_sheet('共同题集')
-ws.append(['维度', '项目', '计分', '总分'])
+ws = wb.create_sheet('common item set')
+ws.append(['domain', 'project', 'scoring', 'total score'])
 items = [
-    ('定向', '年', '正确=1，其余=0', '定向0–5'),
-    ('定向', '月', '正确=1，其余=0', '定向0–5'),
-    ('定向', '日期', '正确=1，其余=0', '定向0–5'),
-    ('定向', '星期', '正确=1，其余=0', '定向0–5'),
-    ('定向', '季节', '正确=1，其余=0', '定向0–5'),
-    ('连续减7', '第一步=93', '答案93=1，否则0', '连续减7：0–5'),
-    ('连续减7', '第二步', '按前一步减7正确=1，否则0', '连续减7：0–5'),
-    ('连续减7', '第三步', '按前一步减7正确=1，否则0', '连续减7：0–5'),
-    ('连续减7', '第四步', '按前一步减7正确=1，否则0', '连续减7：0–5'),
-    ('连续减7', '第五步', '按前一步减7正确=1，否则0', '连续减7：0–5'),
+    ('orientation', 'year', 'correct=1, remaining=0', 'orientation 0–5'),
+    ('orientation', 'month', 'correct=1, remaining=0', 'orientation 0–5'),
+    ('orientation', 'date', 'correct=1, remaining=0', 'orientation 0–5'),
+    ('orientation', 'day of week', 'correct=1, remaining=0', 'orientation 0–5'),
+    ('orientation', 'season', 'correct=1, remaining=0', 'orientation 0–5'),
+    ('serial subtraction of 7', 'step one=93', 'answer 93=1, otherwise 0', 'serial subtraction of 7: 0–5'),
+    ('serial subtraction of 7', 'step two', 'subtract from previous response 7 correct=1, otherwise 0', 'serial subtraction of 7: 0–5'),
+    ('serial subtraction of 7', 'step three', 'subtract from previous response 7 correct=1, otherwise 0', 'serial subtraction of 7: 0–5'),
+    ('serial subtraction of 7', 'step four', 'subtract from previous response 7 correct=1, otherwise 0', 'serial subtraction of 7: 0–5'),
+    ('serial subtraction of 7', 'step five', 'subtract from previous response 7 correct=1, otherwise 0', 'serial subtraction of 7: 0–5'),
 ]
 for row in items: ws.append(row)
 
@@ -197,7 +197,7 @@ xlsx = OUT / 'T09_measurement_equivalence_supplement_2026-09-20.xlsx'
 wb.save(xlsx)
 # Reload must succeed.
 check = load_workbook(xlsx, read_only=True, data_only=True)
-required = {'说明','共同题集','样本敏感性','逐题变化','CFA_全波','CFA_相邻波','记忆计分','记忆描述'}
+required = {'notes','common item set','sample sensitivity','item specific change','CFA_all waves','CFA_adjacent waves','memory scoring','memory description'}
 assert required.issubset(set(check.sheetnames))
-assert check['样本敏感性'].max_row > 1
+assert check['sample sensitivity'].max_row > 1
 print('T09 Excel supplement regenerated and validated')

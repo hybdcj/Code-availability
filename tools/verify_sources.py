@@ -1,4 +1,4 @@
-"""Verify byte-for-byte source provenance; does not execute analyses."""
+"""Verify distributed source checksums; does not execute analyses."""
 from pathlib import Path
 import csv
 import hashlib

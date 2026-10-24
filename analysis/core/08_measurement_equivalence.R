@@ -1,17 +1,17 @@
 # ============================================================================
 # 08_measurement_equivalence.R
-# 五波认知测量的可比性/等值性敏感性分析
-# 版本：v1.1（2026-09-13，随 03_waves_build.R 的 2018 期变量修正同步更新）
-# 输入：output/02_五波数据与质控/waves_cognition_2026-09-13.rds + 五波原始认知模块
-# 输出：output/05_测量等价比/measurement_*_2026-09-13.csv / .rds
-# 目的：
-#   ① 拆解“定向 5 题 + 连续减 7（0-10）”共同题集的逐题缺失与分布变化；
-#   ② 用多组有序 CFA 检验 2011-2020 五波测量等值性，并重点做相邻两波比较；
-#   ③ 比较记忆分 A（比例化）、B（波内 z）、C（排除 2018）三种方案；
-#   ④ 在 2018 年满 60 岁、且完成 2018 全认知模块者中重跑十年变化和危险因素
-#      （敏感性情景，用于检验"2018 年 60 岁以上才做全部题目"是否影响结论）。
-# 注：2018 期记忆分已改用全样本施测的 10 词表（DC028_W4 即时试次1 + DC047_W4 延迟，0-20），
-#     不再使用只对 60 岁以上施测的 3 词表（DC013_W4_1 / DC015_W4）。
+# comparability of cognitive measurement across five waves/measurement equivalence sensitivity analysis
+# version: v1.1(2026-09-13, with 03_waves_build.R of 2018 updated alongside wave variable correction)
+# input: output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds + raw cognitive modules across five waves
+# output: output/05_measurement_equivalence_ratio/measurement_*_2026-09-13.csv / .rds
+# purpose: 
+#   ① decompose“orientation 5 questions + serial subtraction of 7(0-10)”item missingness and distribution changes in common item set; 
+#   ② using multigroup ordinal CFA test 2011-2020 five wave measurement invariance, focus on adjacent wave comparisons; 
+#   ③ compare memory scores A(prorated), B(within wave z), C(exclude 2018)three schemes; 
+#   ④ at 2018 aged at least 60 years old, and completed 2018 rerun ten year change and risk factors among participants with complete cognitive modules
+#      (sensitivity scenarios, for testing"2018 year 60 all items administered only above age"whether conclusions are affected).
+# note: 2018 wave memory scores now use full sample assessments 10 word list(DC028_W4 immediate recall trial 1 + DC047_W4 delayed, 0-20), 
+#     no longer use items administered only to 60 administered above age 3 word list(DC013_W4_1 / DC015_W4).
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 if (dir.exists("D:/R/library")) .libPaths(c("D:/R/library", .libPaths()))
@@ -19,11 +19,11 @@ suppressPackageStartupMessages({
   library(haven); library(dplyr); library(tidyr); library(nlme)
   library(survival); library(MASS); library(lavaan)
 })
-select <- dplyr::select  # MASS 会遮蔽 dplyr::select
+select <- dplyr::select  # MASS would mask dplyr::select
 
 PROJ <- Sys.getenv("CHARLS_PROJ", getwd())
 RAW <- file.path(PROJ, "data", "raw")
-OUT <- file.path(PROJ, "output", "05_测量等价比")
+OUT <- file.path(PROJ, "output", "05_measurement_equivalence_ratio")
 dir.create(OUT, showWarnings = FALSE, recursive = TRUE)
 num <- function(x) as.numeric(x)
 norm_id <- function(x) {
@@ -40,21 +40,21 @@ paired_ci <- function(x) {
 }
 
 ## ---------------------------------------------------------------------------
-## 1. 读取已构建五波数据和固定共同题队列
+## 1. read constructed five wave data and fixed common item cohort
 ## ---------------------------------------------------------------------------
-w <- readRDS(file.path(PROJ, "output", "02_五波数据与质控", "waves_cognition_2026-09-13.rds"))
+w <- readRDS(file.path(PROJ, "output", "02_five_wave_data_and_quality_control", "waves_cognition_2026-09-13.rds"))
 w <- w %>% mutate(KEY = ifelse(is.na(IDn), ID, IDn), ms10 = orient + ser7)
 candidate_ids <- w %>% filter(!is.na(ms10)) %>% count(KEY) %>% filter(n == 5) %>% pull(KEY)
 baseline_age_ids <- w %>% filter(year == 2011, !is.na(age), age >= 45) %>% pull(KEY) %>% unique()
 cohort_ids <- intersect(candidate_ids, baseline_age_ids)
 coh <- w %>% filter(KEY %in% cohort_ids) %>% arrange(KEY, year)
-cat("2011年≥45岁且五波共同题集可计分固定队列 n =", length(cohort_ids), "\n")
+cat("2011 year≥45 age eligible fixed cohort with scorable common items across five waves n =", length(cohort_ids), "\n")
 
-## 波内总体 z 仅用于 B 方案描述；memory_z 若已有则保留，重算以确保队列口径一致。
+## within wave overall z used only for B scheme description; memory_z retain if already present, recompute to ensure consistent cohort definition.
 w <- w %>% group_by(year) %>% mutate(memory_z_pop = as.numeric(scale(memory_prop))) %>% ungroup()
 
 ## ---------------------------------------------------------------------------
-## 2. 从原始模块提取“定向 5 题 + 连续减 7 五步”的逐题作答
+## 2. extract from raw modules“orientation 5 questions + serial subtraction of 7 five steps”item level responses
 ## ---------------------------------------------------------------------------
 read_orient_items <- function(year, file, vars, ok) {
   d <- read_dta(file, col_select = all_of(c("ID", vars)))
@@ -63,7 +63,7 @@ read_orient_items <- function(year, file, vars, ok) {
   for (i in seq_along(vars)) {
     x <- num(d[[vars[i]]])
     x[x %in% c(999, -1)] <- NA
-    out[[item_names[i]]] <- as.integer(!is.na(x) & x == ok[i])  # 与原计分一致：未作答/不知道=错
+    out[[item_names[i]]] <- as.integer(!is.na(x) & x == ok[i])  # consistent with original scoring: not answered/do not know=incorrect
   }
   out
 }
@@ -138,7 +138,7 @@ item_by_wave <- do.call(rbind, lapply(sort(unique(coh_i$year)), function(y) {
 }))
 write.csv(item_by_wave, file.path(OUT, "measurement_item_completeness_2026-09-13.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-## 逐题正确率（固定队列）
+## item correct response rate(fixed cohort)
 item_prev <- do.call(rbind, lapply(sort(unique(coh_i$year)), function(y) {
   d <- coh_i %>% filter(year == y)
   data.frame(year = y, item = common_items,
@@ -147,7 +147,7 @@ item_prev <- do.call(rbind, lapply(sort(unique(coh_i$year)), function(y) {
 }))
 write.csv(item_prev, file.path(OUT, "measurement_item_prevalence_2026-09-13.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-## 逐题 2015 -> 2018 配对变化（只取两波均作答者）
+## item level 2015 -> 2018 paired change(participants responding at both waves only)
 item_change <- do.call(rbind, lapply(common_items, function(v) {
   d <- coh_i %>% filter(year %in% c(2015, 2018), !is.na(.data[[v]])) %>%
     select(KEY, year, val = all_of(v)) %>% pivot_wider(names_from = year, values_from = val, names_prefix = "y")
@@ -161,14 +161,14 @@ item_change <- do.call(rbind, lapply(common_items, function(v) {
 write.csv(item_change, file.path(OUT, "measurement_item_change_2015_2018_2026-09-13.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 ## ---------------------------------------------------------------------------
-## 3. 多组有序 CFA：共同题集测量等值性
+## 3. multigroup ordinal CFA: measurement invariance of common items
 ## ---------------------------------------------------------------------------
 all_complete_ids <- coh_i %>% group_by(KEY) %>% summarise(k = sum(item_complete == 1), .groups = "drop") %>%
   filter(k == 5) %>% pull(KEY)
 moddat <- coh_i %>% filter(KEY %in% all_complete_ids, item_complete == 1) %>%
   mutate(wave = factor(year, levels = c(2011, 2013, 2015, 2018, 2020))) %>%
   droplevels()
-cat("五波逐题完整、可用于全波 CFA 的固定队列 n =", length(all_complete_ids), "\n")
+cat("complete item responses across five waves, available for all wave CFA fixed cohort n =", length(all_complete_ids), "\n")
 
 cfa_model <- paste("F1 =~", paste(common_items[1:5], collapse = " + "), "\nF2 =~", paste(common_items[6:10], collapse = " + "))
 fit_measure <- function(fit) {
@@ -214,7 +214,7 @@ if (!inherits(fit0_all, "error") && !inherits(fit1_all, "error")) {
 }
 
 ## ---------------------------------------------------------------------------
-## 4. 2018 年 60 岁限制 / 完成 2018 完整认知模块的敏感性分析
+## 4. 2018 year 60 age restriction / complete 2018 complete cognitive module sensitivity analysis
 ## ---------------------------------------------------------------------------
 ids60 <- coh %>% filter(year == 2018, age >= 60) %>% pull(KEY)
 ids60_mem <- coh %>% filter(year == 2018, age >= 60, !is.na(imrc), !is.na(dlrc)) %>% pull(KEY)
@@ -225,9 +225,9 @@ scenarios <- list(
   age60_2018_memory = ids60_mem,
   age60_2018_common_complete = ids60_full
 )
-scen_desc <- c(all = "全体五波共同题队列", age60_2018 = "2018 年满 60 岁",
-               age60_2018_memory = "2018 年满 60 岁且记忆题完整",
-               age60_2018_common_complete = "2018 年满 60 岁且共同题逐题完整")
+scen_desc <- c(all = "entire five wave common item cohort", age60_2018 = "2018 aged at least 60 years old",
+               age60_2018_memory = "2018 aged at least 60 years old with complete memory items",
+               age60_2018_common_complete = "2018 aged at least 60 age eligible with complete common items")
 
 scen_tab <- do.call(rbind, lapply(names(scenarios), function(s) {
   d <- coh %>% filter(KEY %in% scenarios[[s]])
@@ -248,7 +248,7 @@ scen_tab <- do.call(rbind, lapply(names(scenarios), function(s) {
 }))
 write.csv(scen_tab, file.path(OUT, "measurement_common_score_sensitivity_2026-09-13.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-## 危险因素：在四个样本定义中分别重跑抑郁、ADL -> 新发受损 / 首次受损
+## risk factors: rerun depression separately under four sample definitions, ADL -> incident impairment / first impairment
 run_risk <- function(d, label) {
   d <- d %>% mutate(dep = as.integer(cesd10 >= 10), edu = factor(edu_group))
   base0 <- d %>% filter(year == 2011)
@@ -297,11 +297,11 @@ run_risk <- function(d, label) {
 risk_sens <- bind_rows(lapply(names(scenarios), function(s) run_risk(coh %>% filter(KEY %in% scenarios[[s]]), scen_desc[[s]])))
 write.csv(risk_sens, file.path(OUT, "measurement_common_score_risk_sensitivity_2026-09-13.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 ## ---------------------------------------------------------------------------
-## 5. 记忆分三套口径：A 比例化、B 波内 z、C 排除 2018
+## 5. three memory score definitions: A prorated, B within wave z, C exclude 2018
 ## ---------------------------------------------------------------------------
 mem_ids <- w %>% filter(!is.na(memory_prop)) %>% count(KEY) %>% filter(n == 5) %>% pull(KEY)
 mem <- w %>% filter(KEY %in% mem_ids) %>% arrange(KEY, year)
-cat("五波记忆分均可计的固定队列 n =", length(mem_ids), "\n")
+cat("fixed cohort with scorable memory at all five waves n =", length(mem_ids), "\n")
 
 mem_desc <- mem %>% group_by(year) %>% summarise(
   n = n(), list_len = first(list_len_imm + list_len_dlr),
@@ -332,18 +332,18 @@ fit_mem_model <- function(dat, score, scheme, excl2018 = FALSE) {
              ci_decade = sprintf("%.3f to %.3f", 10*(b-1.96*se), 10*(b+1.96*se)), p = fmt_p(s["t",5]))
 }
 mem_schemes <- bind_rows(
-  fit_mem_model(mem_long, "prop", "A：比例化（含2018）", FALSE),
-  fit_mem_model(mem_long, "zp", "B：波内z（含2018）", FALSE),
-  fit_mem_model(mem_long, "prop", "C：比例化（排除2018）", TRUE)
+  fit_mem_model(mem_long, "prop", "A: prorated(including 2018)", FALSE),
+  fit_mem_model(mem_long, "zp", "B: within wave z(including 2018)", FALSE),
+  fit_mem_model(mem_long, "prop", "C: prorated(exclude 2018)", TRUE)
 )
 write.csv(mem_schemes, file.path(OUT, "measurement_memory_schemes_2026-09-13.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-## 两种预设暴露在三种记忆口径下的时间×暴露交互
+## time under two prespecified exposures and three memory definitions×exposure interaction
 mem_risk <- do.call(rbind, lapply(c("dep","adl"), function(e) {
   do.call(rbind, lapply(list(
-    list(score="prop", scheme="A：比例化（含2018）", excl=FALSE),
-    list(score="zp", scheme="B：波内z（含2018）", excl=FALSE),
-    list(score="prop", scheme="C：比例化（排除2018）", excl=TRUE)
+    list(score="prop", scheme="A: prorated(including 2018)", excl=FALSE),
+    list(score="zp", scheme="B: within wave z(including 2018)", excl=FALSE),
+    list(score="prop", scheme="C: prorated(exclude 2018)", excl=TRUE)
   ), function(z) {
     dd <- mem_long; if (z$excl) dd <- dd %>% filter(year != 2018)
     m <- tryCatch(lme(as.formula(paste(z$score, "~ t *", e, "+ age2011 + female + edu_group")),
@@ -363,10 +363,10 @@ saveRDS(list(coh=coh, coh_item=coh_i, item_by_wave=item_by_wave, item_prev=item_
              memory_schemes=mem_schemes, memory_risk=mem_risk),
         file.path(OUT, "measurement_equivalence_2026-09-13.rds"))
 
-cat("\n===== 共同题完整性 =====\n"); print(item_by_wave, row.names = FALSE)
-cat("\n===== 2015->2018 逐题变化 =====\n"); print(item_change, row.names = FALSE)
-cat("\n===== 样本敏感性 =====\n"); print(scen_tab, row.names = FALSE)
-cat("\n===== CFA 相邻波 =====\n"); print(cfa_pairs, row.names = FALSE)
-cat("\n===== 记忆分描述 =====\n"); print(mem_desc, row.names = FALSE)
-cat("\n===== 记忆分时间斜率 =====\n"); print(mem_schemes, row.names = FALSE)
-cat("\n已输出 measurement_*_2026-09-13.csv/.rds\n")
+cat("\n===== common item completeness =====\n"); print(item_by_wave, row.names = FALSE)
+cat("\n===== 2015->2018 item specific change =====\n"); print(item_change, row.names = FALSE)
+cat("\n===== sample sensitivity =====\n"); print(scen_tab, row.names = FALSE)
+cat("\n===== CFA adjacent waves =====\n"); print(cfa_pairs, row.names = FALSE)
+cat("\n===== memory score description =====\n"); print(mem_desc, row.names = FALSE)
+cat("\n===== memory score time slope =====\n"); print(mem_schemes, row.names = FALSE)
+cat("\n outputs generated measurement_*_2026-09-13.csv/.rds\n")

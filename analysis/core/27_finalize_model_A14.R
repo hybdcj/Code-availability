@@ -1,20 +1,20 @@
 # ============================================================================
-# 27_finalize_model_A14.R —— A14：最终模型与评分表冻结
-# 输入：A07 模型 RDS、A08 Bootstrap、A11/A12/A13 外部验证结果
-# 输出：output/12_模型定稿/
+# 27_finalize_model_A14.R —— A14: freeze final model and score table
+# input: A07 model RDS, A08 Bootstrap, A11/A12/A13 external validation results
+# output: output/12_final_model/
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL","zh_CN.UTF-8"), silent=TRUE))
 .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages({ library(dplyr); library(pROC); library(knitr) })
 
-P   <- "D:/BaiduSyncdisk/科研/徐中豪"
-OUT <- file.path(P, "output", "12_模型定稿")
+P   <- "D:/BaiduSyncdisk/research/Xu_Zhonghao"
+OUT <- file.path(P, "output", "12_final_model")
 dir.create(OUT, recursive = TRUE, showWarnings = FALSE)
 
-a07 <- readRDS(file.path(P, "output/10_筛查指数/screening_index_memory_v3_2026-09-26.rds"))
-a08 <- readRDS(file.path(P, "output/10_筛查指数/A08_bootstrap_2026-09-26.rds"))
-a12 <- readRDS(file.path(P, "output/11_外部验证/A12_results_2026-09-26.rds"))
-a13 <- readRDS(file.path(P, "output/11_外部验证/A13_results_2026-09-26.rds"))
+a07 <- readRDS(file.path(P, "output/10_screening_index/screening_index_memory_v3_2026-09-26.rds"))
+a08 <- readRDS(file.path(P, "output/10_screening_index/A08_bootstrap_2026-09-26.rds"))
+a12 <- readRDS(file.path(P, "output/11_external_validation/A12_results_2026-09-26.rds"))
+a13 <- readRDS(file.path(P, "output/11_external_validation/A13_results_2026-09-26.rds"))
 
 model_u <- a07$model_u
 scenario_lab <- c(baseline_all_mean_sd="S0_baseline_all", complete_fu_mean_sd="S1_complete_fu", fixed_charls_le4="S2_fixed_le4")
@@ -22,13 +22,13 @@ model_levels <- model_u$xlevels$edu_group
 coef_mat <- summary(model_u)$coefficients
 ci_mat <- confint.default(model_u)
 term_labels <- c(
-  "(Intercept)" = "截距",
-  "age" = "年龄（每岁）",
-  "edu_groupPrimary school" = "教育：小学（vs 未上学）",
-  "edu_groupMiddle school" = "教育：初中（vs 未上学）",
-  "edu_groupHigh school or above" = "教育：高中及以上（vs 未上学）",
-  "dep" = "抑郁：CES-D-10 ≥10（vs <10）",
-  "adl" = "ADL：任一受限（vs 无受限）"
+  "(Intercept)" = "intercept",
+  "age" = "age(per year of age)",
+  "edu_groupPrimary school" = "education: primary school(vs no schooling)",
+  "edu_groupMiddle school" = "education: middle school(vs no schooling)",
+  "edu_groupHigh school or above" = "education: high school or above(vs no schooling)",
+  "dep" = "depression: CES-D-10 ≥10(vs <10)",
+  "adl" = "ADL: any limitation(vs no limitation)"
 )
 coef_table <- data.frame(
   term = rownames(coef_mat),
@@ -45,34 +45,34 @@ coef_table <- data.frame(
   row.names = NULL, check.names = FALSE
 )
 
-# 最终连续模型公式
+# final continuous model formula
 beta <- setNames(coef_table$beta, coef_table$term)
 formula_text <- sprintf(
-  "logit(P(4年记忆跨阈值)) = %.4f + %.4f×年龄 + (%.4f)×小学 + (%.4f)×初中 + (%.4f)×高中及以上 + %.4f×抑郁 + (%.4f)×ADL",
+  "logit(P(4 year memory threshold crossing)) = %.4f + %.4f×age + (%.4f)×primary school + (%.4f)×middle school + (%.4f)×high school or above + %.4f×depression + (%.4f)×ADL",
   beta[["(Intercept)"]], beta[["age"]], beta[["edu_groupPrimary school"]],
   beta[["edu_groupMiddle school"]], beta[["edu_groupHigh school or above"]],
   beta[["dep"]], beta[["adl"]]
 )
 
-# 最终评分表
+# final score table
 score_table <- data.frame(
-  项目 = c("年龄","教育","教育","教育","教育","抑郁","ADL"),
-  类别 = c("45–49 岁=0；50–54=+2；每增加 5 岁再 +2，不设上限","未上学（Less than primary）",
-           "小学（Primary school）","初中（Middle school）","高中及以上（High school or above）",
-           "CES-D-10 ≥10","任一 ADL 受限"),
-  分值 = c("+2 / 每 5 岁","0","−2","−7","−10","+3","0"),
-  说明 = c("45–49 岁为 0 分，不设上限","参照组","相对未上学","相对未上学","相对未上学","vs CES-D-10 <10","β≈0，不计分；连续模型仍保留"),
+  project = c("age","education","education","education","education","depression","ADL"),
+  class = c("45–49 years old=0; 50–54=+2; per increase of 5 years then +2, no upper limit","no schooling(Less than primary)",
+           "primary school(Primary school)","middle school(Middle school)","high school or above(High school or above)",
+           "CES-D-10 ≥10","any ADL limited"),
+  point_value = c("+2 / per 5 years old","0","−2","−7","−10","+3","0"),
+  notes = c("45–49 years equals 0 points, no upper limit","reference group","relative to no schooling","relative to no schooling","relative to no schooling","vs CES-D-10 <10","β≈0, no points; continuous model still retains"),
   row.names = NULL
 )
 
-# 风险分层
+# risk stratification
 strata_table <- a07$strata %>%
-  mutate(风险层 = as.character(stratum),
-         风险层定义 = c("≤−3","−2 ～ +4","≥+5")[match(stratum, c("低","中","高"))],
-         事件率_num = as.numeric(sub("%","",事件率))/100) %>%
-  select(风险层, 风险层定义, n, 事件, 事件率, 平均分)
+  mutate(risk_stratum = as.character(stratum),
+         risk_stratum_definition = c("≤−3","−2 ～ +4","≥+5")[match(stratum, c("low","in","high"))],
+         event_rate_num = as.numeric(sub("%","",event_rate))/100) %>%
+  select(risk_stratum, risk_stratum_definition, n, events, event_rate, mean_score)
 
-# 内部性能
+# internal performance
 p_hat <- predict(model_u, type = "response")
 r_cont <- roc(a07$data$incident_2015, p_hat, direction = "<", quiet = TRUE)
 r_score <- roc(a07$data$incident_2015, a07$data$score, direction = "<", quiet = TRUE)
@@ -119,22 +119,22 @@ external_sens <- a12$perf %>% filter(cut_definition != "baseline_all_mean_sd") %
             cal_intercept, cal_intercept_low, cal_intercept_high, brier)
 performance <- bind_rows(internal_apparent, internal_boot, external_s0, external_sens)
 
-# 外部风险分层 S0
+# external risk stratification S0
 external_strata <- a12$strata %>% filter(cut_definition == "baseline_all_mean_sd") %>%
   transmute(cohort, stratum = as.character(stratum), n, events, rate, pred_mean, oe_model)
 
-# 外部 meta
-meta_summary <- a13$cross %>% mutate(scenario = scenario_lab[cut_definition], metric_zh = ifelse(metric=="model","连续模型","整数分"))
+# external meta
+meta_summary <- a13$cross %>% mutate(scenario = scenario_lab[cut_definition], metric_zh = ifelse(metric=="model","continuous model","integer score"))
 
-# 保存 CSV
-write.csv(coef_table, file.path(OUT,"A14_最终模型系数.csv"), row.names=FALSE, fileEncoding="UTF-8")
-write.csv(score_table, file.path(OUT,"A14_最终评分表.csv"), row.names=FALSE, fileEncoding="UTF-8")
-write.csv(strata_table, file.path(OUT,"A14_风险分层.csv"), row.names=FALSE, fileEncoding="UTF-8")
-write.csv(performance, file.path(OUT,"A14_性能汇总.csv"), row.names=FALSE, fileEncoding="UTF-8")
-write.csv(external_strata, file.path(OUT,"A14_外部风险分层_S0.csv"), row.names=FALSE, fileEncoding="UTF-8")
-write.csv(meta_summary, file.path(OUT,"A14_跨队列meta汇总.csv"), row.names=FALSE, fileEncoding="UTF-8")
+# save CSV
+write.csv(coef_table, file.path(OUT,"A14_final_model_coefficients.csv"), row.names=FALSE, fileEncoding="UTF-8")
+write.csv(score_table, file.path(OUT,"A14_final_score_table.csv"), row.names=FALSE, fileEncoding="UTF-8")
+write.csv(strata_table, file.path(OUT,"A14_risk_stratification.csv"), row.names=FALSE, fileEncoding="UTF-8")
+write.csv(performance, file.path(OUT,"A14_performance_summary.csv"), row.names=FALSE, fileEncoding="UTF-8")
+write.csv(external_strata, file.path(OUT,"A14_external_risk_stratification_S0.csv"), row.names=FALSE, fileEncoding="UTF-8")
+write.csv(meta_summary, file.path(OUT,"A14_cross_cohort_meta_summary.csv"), row.names=FALSE, fileEncoding="UTF-8")
 
-# 保存最终模型 artifact
+# save final model artifact
 final_model <- list(
   model = model_u,
   coef_table = coef_table,
@@ -157,183 +157,183 @@ final_model <- list(
 saveRDS(final_model, file.path(OUT,"A14_final_model_2026-09-26.rds"))
 writeLines(capture.output(sessionInfo()), file.path(OUT,"A14_sessionInfo_2026-09-26.txt"), useBytes=TRUE)
 
-# 报告表格式化
+# format report tables
 fmt <- function(x,d=3) ifelse(is.na(x),"NA",sprintf(paste0("%.",d,"f"),x))
 coef_tab <- coef_table %>% mutate(
-  项 = term_zh,
+  items = term_zh,
   β = fmt(beta,4), SE = fmt(se,4), OR = fmt(OR,3),
   OR_95CI = paste0(fmt(OR_low,3),"–",fmt(OR_high,3)),
   p = ifelse(p<0.001,"<0.001",fmt(p,3))
 ) %>% mutate(OR = ifelse(term=="(Intercept)","—",OR),
              OR_95CI = ifelse(term=="(Intercept)","—",OR_95CI)) %>%
-  select(项, β, SE, OR, OR_95CI, p)
-score_tab <- score_table %>% select(项目, 类别, 分值, 说明)
+  select(items, β, SE, OR, OR_95CI, p)
+score_tab <- score_table %>% select(project, class, point_value, notes)
 strata_tab <- strata_table
 fmt_ci <- function(a,lo,hi,d=3) ifelse(is.na(a), "—", paste0(fmt(a,d), " (", fmt(lo,d), "–", fmt(hi,d), ")"))
 perf_tab <- performance %>% filter(scenario %in% c("internal_apparent","internal_bootstrap","external_S0")) %>%
   mutate(
-    AUC模型 = fmt_ci(auc_model, auc_model_low, auc_model_high),
-    AUC整数分 = fmt_ci(auc_score, auc_score_low, auc_score_high),
-    校准斜率 = fmt(cal_slope,2), 校准截距 = fmt(cal_intercept,2), Brier = fmt(brier,3)
-  ) %>% select(队列=cohort, 场景=scenario, 全风险n=n_total, 全风险事件=events_total, 模型n=n_model, 事件=events_model, AUC模型, AUC整数分, 校准斜率, 校准截距, Brier)
+    AUC_model = fmt_ci(auc_model, auc_model_low, auc_model_high),
+    AUC_integer_score = fmt_ci(auc_score, auc_score_low, auc_score_high),
+    calibration_slope = fmt(cal_slope,2), calibration_intercept = fmt(cal_intercept,2), Brier = fmt(brier,3)
+  ) %>% select(cohort=cohort, scenario=scenario, full_risk_set_n=n_total, full_risk_set_events=events_total, model_n=n_model, events=events_model, AUC_model, AUC_integer_score, calibration_slope, calibration_intercept, Brier)
 sens_tab <- performance %>% filter(scenario %in% c("external_S1_complete_fu","external_S2_fixed_le4")) %>%
   mutate(
-    AUC模型 = fmt_ci(auc_model, auc_model_low, auc_model_high),
-    AUC整数分 = fmt_ci(auc_score, auc_score_low, auc_score_high),
-    校准斜率 = fmt(cal_slope,2), 校准截距 = fmt(cal_intercept,2), Brier = fmt(brier,3)
-  ) %>% select(队列=cohort, 场景=scenario, 全风险n=n_total, 全风险事件=events_total, 模型n=n_model, 事件=events_model, AUC模型, AUC整数分, 校准斜率, 校准截距, Brier)
+    AUC_model = fmt_ci(auc_model, auc_model_low, auc_model_high),
+    AUC_integer_score = fmt_ci(auc_score, auc_score_low, auc_score_high),
+    calibration_slope = fmt(cal_slope,2), calibration_intercept = fmt(cal_intercept,2), Brier = fmt(brier,3)
+  ) %>% select(cohort=cohort, scenario=scenario, full_risk_set_n=n_total, full_risk_set_events=events_total, model_n=n_model, events=events_model, AUC_model, AUC_integer_score, calibration_slope, calibration_intercept, Brier)
 meta_tab <- meta_summary %>% mutate(
-  合并AUC = paste0(fmt(pooled_auc), " (", fmt(pooled_low), "–", fmt(pooled_high), ")"),
+  combine_AUC = paste0(fmt(pooled_auc), " (", fmt(pooled_low), "–", fmt(pooled_high), ")"),
   I2 = sprintf("%.1f%%", I2)
-) %>% select(切点=scenario, 指标=metric_zh, 合并AUC, I2, k)
+) %>% select(cutoff=scenario, metrics=metric_zh, combine_AUC, I2, k)
 
 md <- c(
-"# A14：最终模型与评分表冻结（v1.0，2026-09-26）",
+"# A14: freeze final model and score table(v1.0, 2026-09-26)",
 "",
-"> **冻结声明**：自 2026-09-26 起，最终模型、评分表、风险分层和公式冻结。",
-"> 外部队列仅用于验证，**未重新拟合、未重新选变量、未改变切点**；后续任何修改须标注为事后分析并重新验证。",
+"> **freeze statement**: from 2026-09-26 onward, final model, score table, risk strata and formula frozen.",
+"> external cohorts used for validation only, **not refitted, variables not reselected, cutoffs unchanged**; any subsequent changes must be labeled post hoc and revalidated.",
 "",
-"## 一、最终连续模型",
+"## one, final continuous model",
 "",
-paste0("**模型公式**：", formula_text),
+paste0("**model formula**: ", formula_text),
 "",
 kable(coef_tab, format="pipe", row.names=FALSE),
 "",
-"> 参考类别：教育=未上学（Less than primary）；抑郁=CES-D-10 <10；ADL=无受限。",
-"> 结局：CHARLS 2011 年记忆分 >4 者，2015 年记忆分 ≤4（4 年跨阈值）。",
-"> ADL 系数接近 0、95%CI 跨 1，因此最终简化评分表中 ADL 计 0 分；连续模型保留 ADL 以保持预先设定的完整模型。",
+"> reference categories: education=no schooling(Less than primary); depression=CES-D-10 <10; ADL=no limitation.",
+"> outcome: CHARLS 2011 year memory score >4 participants, 2015 year memory score ≤4(4 year threshold crossing).",
+"> ADL coefficient close to 0, 95%CI across 1, therefore in final simplified score table ADL score 0 points; retain in continuous model ADL to preserve prespecified full model.",
 "",
-"## 二、最终简化评分表",
+"## two, final simplified score table",
 "",
 kable(score_tab, format="pipe", row.names=FALSE),
 "",
-"**总分** = 年龄分 + 教育分 + 抑郁分；ADL 不计分。",
-"> 年龄分不设上限（每增加 5 岁 +2）。总分不是固定 −10～+20；开发样本观察范围 −10～+20，外部 SHARE 观察最高 +23。
-> 外部队列应用时，抑郁切点按预先 harmonization：HRS/ELSA CES-D-8 ≥4；SHARE EURO-D ≥4（详见 A11 v2.2 映射表）。",
+"**total score** = age points + education points + depression points; ADL no points.",
+"> age points have no upper limit(per increase of 5 years old +2).total score is not fixed −10～+20; observed development sample range −10～+20, external SHARE observed maximum +23.
+> when applied to external cohorts, depression cutoff as prespecified harmonization: HRS/ELSA CES-D-8 ≥4; SHARE EURO-D ≥4(see details in A11 v2.2 mapping table).",
 "",
-"## 三、风险分层",
+"## three, risk stratification",
 "",
 kable(strata_tab, format="pipe", row.names=FALSE),
 "",
-"> 分层来自 CHARLS 开发样本整数总分三分位：低 ≤−3；中 −2～+4；高 ≥+5。",
-"> 开发样本观察事件率：低 5.6%、中 15.4%、高 27.3%；外部队列 S0 事件率见 A14_外部风险分层_S0.csv。",
+"> strata derived from CHARLS tertiles of development sample integer score: low ≤−3; in −2～+4; high ≥+5.",
+"> observed development sample event rate: low 5.6%, in 15.4%, high 27.3%; external cohort S0 event rates in A14_external_risk_stratification_S0.csv.",
 "",
-"## 四、内部与外部性能汇总",
+"## four, internal and external performance summary",
 "",
 kable(perf_tab, format="pipe", row.names=FALSE),
 "",
-"> 内部 Bootstrap 校正后 AUC 0.698（0.679–0.720），校准斜率 0.98，Brier 0.1184。 表中“模型n/事件”为连续模型完整样本；“全风险n/事件”为整数分 AUC 使用的样本。HRS 全风险集 14,051/1,842；ELSA 6,725/554；SHARE 26,879/2,930。",
-"> 外部队列 S0 连续模型 AUC：HRS 0.696、ELSA 0.763、SHARE 0.751；校准存在明显队列差异（HRS 低估、SHARE 高估、ELSA 斜率偏大）。",
+"> internal Bootstrap adjusted AUC 0.698(0.679–0.720), calibration slope 0.98, Brier 0.1184. in the table“model n/events”is continuous model complete sample; “full risk set n/events”is integer score AUC sample used.HRS full risk set 14,051/1,842; ELSA 6,725/554; SHARE 26,879/2,930.",
+"> external cohort S0 continuous model AUC: HRS 0.696, ELSA 0.763, SHARE 0.751; substantial between cohort calibration differences(HRS underestimation, SHARE overestimation, ELSA slope above one).",
 "",
-"## 五、正式敏感性 S1/S2",
+"## five, formal sensitivity S1/S2",
 "",
 kable(sens_tab, format="pipe", row.names=FALSE),
 "",
-"> S1=complete-fu mean−1SD；S2=固定 CHARLS ≤4。S2 AUC 更高但事件率更低，且依赖跨队列记忆分绝对可比性；主分析仍为 S0。",
+"> S1=complete-fu mean−1SD; S2=fixed CHARLS ≤4.S2 AUC higher but event rate lower, depends on absolute comparability of memory scores across cohorts; primary analysis remains S0.",
 "",
-"## 六、跨队列随机效应汇总（A13）",
+"## six, cross cohort random effects summary(A13)",
 "",
 kable(meta_tab, format="pipe", row.names=FALSE),
 "",
-"> 跨队列 I² 很高（85%–95%），合并值仅作描述；论文应重点报告各队列结果、校准差异和异质性来源。",
+"> cross cohort I² very high(85%–95%), pooled values are descriptive only; manuscript should emphasize cohort results, calibration differences and heterogeneity sources.",
 "",
-"## 七、最终用途与边界",
+"## seven, final intended use and boundaries",
 "",
-"**允许的用途**：",
-"- 45 岁及以上中老年人群的术前相关认知脆弱性**筛查/分流**；",
-"- 识别可能需要进一步 MoCA/MMSE 等认知评估者；",
-"- 作为公开数据开发、内部验证和跨队列外部验证的筛查指数。",
+"**permitted uses**: ",
+"- 45 preoperative related cognitive vulnerability in middle aged and older adults aged at least**screening/triage**; ",
+"- identify people who may need further MoCA/MMSE cognitive assessment; ",
+"- developed using accessible data, screening index with internal and cross cohort external validation.",
 "",
-"**禁止的用途**：",
-"- 不作为痴呆/MCI 诊断工具；",
-"- 不预测术后谵妄、PND、ICU、住院或死亡；",
-"- 不声称已在真实手术队列验证；",
-"- 不作为治疗决策或围术期决策工具。",
+"**prohibited uses**: ",
+"- not for dementia/MCI diagnostic tool; ",
+"- does not predict postoperative delirium, PND, ICU, hospitalization or death; ",
+"- do not claim validation in surgical cohorts; ",
+"- not for treatment or perioperative decision making.",
 "",
-"## 八、限制",
+"## eight, limitations",
 "",
-"1. 结局是 4 年记忆分跨阈值，含基线位置、测量误差和回归均值成分，不等同于临床痴呆/MCI 发病率；",
-"2. 外部队列校准存在队列差异，HRS 低估风险、SHARE 高估风险、ELSA 校准斜率 1.82；",
-"3. 跨队列异质性高（I² 85%–95%），且 k=3；",
-"4. ELSA 年龄 90 岁顶码；ADL 缺失 HRS 79 人、SHARE 5 人；",
-"5. 死亡/失访/记忆分缺失者被排除，未处理竞争风险；",
-"6. 尚未在真实手术人群验证；",
-"7. S0/S1 使用各队列内 mean−1SD，与 CHARLS 固定 ≤4 不是同一绝对结局；S2 固定 ≤4 假设跨队列记忆分绝对可比。三套结果互补，不能互相替代。",
+"1. outcome is 4 year memory score threshold crossing, including baseline position, measurement error and regression to mean components, not equivalent to clinical dementia/MCI incidence; ",
+"2. external calibration differs by cohort, HRS underestimates risk, SHARE overestimates risk, ELSA calibration slope 1.82; ",
+"3. high cross cohort heterogeneity(I² 85%–95%), and k=3; ",
+"4. ELSA age 90 age top coding; ADL missing HRS 79 participants, SHARE 5 participants; ",
+"5. death/attrition/participants missing memory scores excluded, competing risks not addressed; ",
+"6. not yet validated in surgical patients; ",
+"7. S0/S1 uses within each cohort mean−1SD, and CHARLS fixed ≤4 not the same absolute outcome; S2 fixed ≤4 assumes absolute memory score comparability across cohorts.three complementary result sets, not interchangeable.",
 "",
-"## 九、可复现性与文件",
+"## nine, reproducibility and files",
 "",
-"- 模型 artifact：`A14_final_model_2026-09-26.rds`",
-"- 系数：`A14_最终模型系数.csv`",
-"- 评分表：`A14_最终评分表.csv`",
-"- 风险分层：`A14_风险分层.csv`",
-"- 性能汇总：`A14_性能汇总.csv`、`A14_外部风险分层_S0.csv`、`A14_跨队列meta汇总.csv`",
-"- Session info：`A14_sessionInfo_2026-09-26.txt`",
-"- 冻结校验：`A14_artifact_sha256_2026-09-26.txt`",
-"- 脚本：`code/27_finalize_model_A14.R`",
-"- 独立复核：`A14_独立复核_2026-09-26.txt`（由 verify_a14 生成）",
+"- model artifact: `A14_final_model_2026-09-26.rds`",
+"- coefficients: `A14_final_model_coefficients.csv`",
+"- score table: `A14_final_score_table.csv`",
+"- risk stratification: `A14_risk_stratification.csv`",
+"- performance summary: `A14_performance_summary.csv`, `A14_external_risk_stratification_S0.csv`, `A14_cross_cohort_meta_summary.csv`",
+"- Session info: `A14_sessionInfo_2026-09-26.txt`",
+"- freeze verification: `A14_artifact_sha256_2026-09-26.txt`",
+"- scripts: `code/27_finalize_model_A14.R`",
+"- independent verification: `A14_independent_verification_2026_09_26.txt`(from verify_a14 generate)",
 "",
-"## 十、结论",
+"## ten, conclusion",
 "",
-"> 最终模型与简化评分表冻结，版本 v1.0（2026-09-26）。",
-"> 最终工具是**术前相关认知脆弱性筛查/分流工具**，不是术后结局预测工具。"
+"> freeze final model and simplified score table, version v1.0(2026-09-26).",
+"> final tool is**preoperative related cognitive vulnerability screening/triage tool**, not a postoperative outcome predictor."
 )
-writeLines(md, file.path(OUT,"A14_最终模型规范_2026-09-26.md"), useBytes=TRUE)
+writeLines(md, file.path(OUT,"A14_final_model_specification_2026_09_26.md"), useBytes=TRUE)
 
-# 一页评分卡
+# one page scorecard
 scorecard <- c(
-"# 术前相关认知脆弱性筛查评分卡（v1.0，2026-09-26）",
+"# preoperative related cognitive vulnerability scorecard(v1.0, 2026-09-26)",
 "",
-"> 用途：45 岁及以上中老年人群的术前认知评估分流；不作诊断，不预测术后谵妄/PND。",
+"> purpose: 45 preoperative cognitive assessment triage in age eligible middle aged and older adults; not diagnostic, does not predict postoperative delirium/PND.",
 "",
-"## 评分步骤",
+"## scoring steps",
 "",
-"### 1. 年龄分",
-"| 年龄 | 分值 |",
+"### 1. age points",
+"| age | point value |",
 "|---|---|",
-"| 45–49 岁 | 0 |",
-"| 50–54 岁 | +2 |",
-"| 55–59 岁 | +4 |",
-"| 60–64 岁 | +6 |",
-"| 65–69 岁 | +8 |",
-"| 70–74 岁 | +10 |",
-"| 75–79 岁 | +12 |",
-"| 80–84 岁 | +14 |",
-"| 85–89 岁 | +16 |",
-"| 90–94 岁 | +18 |",
-"| 每再增加 5 岁 | 再 +2 |",
+"| 45–49 years old | 0 |",
+"| 50–54 years old | +2 |",
+"| 55–59 years old | +4 |",
+"| 60–64 years old | +6 |",
+"| 65–69 years old | +8 |",
+"| 70–74 years old | +10 |",
+"| 75–79 years old | +12 |",
+"| 80–84 years old | +14 |",
+"| 85–89 years old | +16 |",
+"| 90–94 years old | +18 |",
+"| per additional 5 years old | then +2 |",
 "",
-"### 2. 教育分",
-"| 教育 | 分值 |",
+"### 2. education points",
+"| education | point value |",
 "|---|---|",
-"| 未上学 | 0 |",
-"| 小学 | −2 |",
-"| 初中 | −7 |",
-"| 高中及以上 | −10 |",
+"| no schooling | 0 |",
+"| primary school | −2 |",
+"| middle school | −7 |",
+"| high school or above | −10 |",
 "",
-"### 3. 抑郁分",
-"| CES-D-10 | 分值 |",
+"### 3. depression points",
+"| CES-D-10 | point value |",
 "|---|---|",
 "| <10 | 0 |",
 "| ≥10 | +3 |",
 "",
 "### 4. ADL",
-"ADL 不计分（β≈0）；连续模型仍保留 ADL。",
+"ADL no points(β≈0); continuous model still retains ADL.",
 "",
-"### 5. 总分与风险层",
-"| 风险层 | 总分 | CHARLS 观察事件率 |",
+"### 5. total score and risk strata",
+"| risk stratum | total score | CHARLS observed event rate |",
 "|---|---|---|",
-"| 低危 | ≤−3 | 5.6% |",
-"| 中危 | −2 ～ +4 | 15.4% |",
-"| 高危 | ≥+5 | 27.3% |",
+"| low risk | ≤−3 | 5.6% |",
+"| intermediate risk | −2 ～ +4 | 15.4% |",
+"| high risk | ≥+5 | 27.3% |",
 "",
-"**示例**：70 岁、小学、CES-D-10 ≥10 → 10 + (−2) + 3 = **11 分 → 高危**。",
+"**example**: 70 years old, primary school, CES-D-10 ≥10 → 10 + (−2) + 3 = **11 points → high risk**.",
 "",
-"## 重要提醒",
-"- 高风险只表示建议进一步认知评估，不等于诊断；",
-"- 外部队列校准存在差异，个体概率解释需谨慎；",
-"- 不用于预测术后谵妄、PND 或围术期结局；",
-"- 尚未在真实手术队列验证。"
+"## important reminder",
+"- high risk indicates need for further cognitive assessment only, does not establish diagnosis; ",
+"- external cohort calibration differs, interpret individual probabilities cautiously; ",
+"- not for predicting postoperative delirium, PND or perioperative outcomes; ",
+"- not yet validated in a surgical cohort."
 )
-writeLines(scorecard, file.path(OUT,"A14_评分卡_2026-09-26.md"), useBytes=TRUE)
+writeLines(scorecard, file.path(OUT,"A14_scorecard_2026_09_26.md"), useBytes=TRUE)
 
 cat("A14 finalized.\n")

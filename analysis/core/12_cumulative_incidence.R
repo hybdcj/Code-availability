@@ -1,28 +1,28 @@
 # ============================================================================
-# 12_cumulative_incidence.R —— T05：固定队列累积发病曲线与风险人数表
-# 版本：v1.0（2026-09-20）
-# 输入：output/04_纵向队列/interval_incidence_events_2026-09-20.rds
-# 输出：
-#   output/04_纵向队列/cumulative_incidence_2026-09-20.csv
-#   output/04_纵向队列/cumulative_incidence_risk_table_2026-09-20.csv
-#   output/04_纵向队列/cumulative_incidence_km_sensitivity_2026-09-20.csv
-#   output/04_纵向队列/cumulative_incidence_2026-09-20.md
-#   output/09_图表/Figure4_cumulative_incidence_2026-09-20.png
-#   output/09_图表/Figure4_cumulative_incidence_2026-09-20.tif
+# 12_cumulative_incidence.R —— T05: fixed cohort cumulative incidence curves and numbers at risk
+# version: v1.0(2026-09-20)
+# input: output/04_longitudinal_cohort/interval_incidence_events_2026-09-20.rds
+# output: 
+#   output/04_longitudinal_cohort/cumulative_incidence_2026-09-20.csv
+#   output/04_longitudinal_cohort/cumulative_incidence_risk_table_2026-09-20.csv
+#   output/04_longitudinal_cohort/cumulative_incidence_km_sensitivity_2026-09-20.csv
+#   output/04_longitudinal_cohort/cumulative_incidence_2026-09-20.md
+#   output/09_figures_and_tables/Figure4_cumulative_incidence_2026-09-20.png
+#   output/09_figures_and_tables/Figure4_cumulative_incidence_2026-09-20.tif
 #
-# 说明：
-#   主曲线：按计划随访时点 2、4、7、9 年计算离散累积发病；
-#   敏感性曲线：连续两波确认受损；
-#   KM：事件时间未知，使用区间中点近似 1、3、5.5、8 年，仅作敏感性分析。
+# notes: 
+#   primary curve: at scheduled follow up times 2, 4, 7, 9 year discrete cumulative incidence; 
+#   sensitivity curve: impairment confirmed at two consecutive waves; 
+#   KM: unknown event time, use interval midpoint approximation 1, 3, 5.5, 8 year, sensitivity analysis only.
 # ============================================================================
 
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 if (dir.exists("D:/R/library")) .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages(library(survival))
 
-P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/科研/徐中豪")
-OUT <- file.path(P, "output", "04_纵向队列")
-FIG_DIR <- file.path(P, "output", "09_图表")
+P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/research/Xu_Zhonghao")
+OUT <- file.path(P, "output", "04_longitudinal_cohort")
+FIG_DIR <- file.path(P, "output", "09_figures_and_tables")
 if (!dir.exists(OUT)) dir.create(OUT, recursive = TRUE)
 if (!dir.exists(FIG_DIR)) dir.create(FIG_DIR, recursive = TRUE)
 
@@ -41,38 +41,38 @@ binomial_ci <- function(events, n) {
 }
 fmt_pct <- function(x) ifelse(is.na(x), "—", sprintf("%.1f%%", 100 * x))
 
-# 主曲线：首次发作。
+# primary curve: first onset.
 events_first <- vapply(1:4, function(i) sum(base$first_index == i, na.rm = TRUE), integer(1))
 cum_first <- c(0L, cumsum(events_first))
 ci_first <- t(vapply(cum_first, function(x) binomial_ci(x, n_base), numeric(2)))
 risk_first <- n_base - cum_first
-# t=9 的风险人数是末次随访前尚未发生首次事件者；之后统一为研究结束。
+# t=9 number at risk is participants without first event before final follow up; thereafter study ends for all.
 risk_first[5] <- n_base - cum_first[5]
 
-# 敏感性曲线：连续两波确认。2018-2020 无下一波，无法确认新事件。
+# sensitivity curve: confirmed at two consecutive waves.2018-2020 no next wave, cannot confirm new events.
 events_conf <- vapply(1:3, function(i) sum(base$confirmed_index == i, na.rm = TRUE), integer(1))
 cum_conf <- c(0L, cumsum(events_conf), sum(events_conf))
 ci_conf <- t(vapply(cum_conf, function(x) binomial_ci(x, n_base), numeric(2)))
 risk_conf <- c(n_base, n_base - cumsum(events_conf), NA_integer_)
-risk_conf_status <- c("可估计", "可估计", "可估计", "可估计", "不可确认")
+risk_conf_status <- c("estimable", "estimable", "estimable", "estimable", "unconfirmed")
 
 curve_tab <- data.frame(
   time_years = rep(times, 2),
   outcome = rep(c("first_episode", "confirmed_first_episode"), each = length(times)),
-  outcome_label = rep(c("九年内首次受损", "连续两波确认受损"), each = length(times)),
+  outcome_label = rep(c("first impairment within nine years", "impairment confirmed at two consecutive waves"), each = length(times)),
   cumulative_events = c(cum_first, cum_conf),
   cumulative_incidence = c(cum_first / n_base, cum_conf / n_base),
   ci_lower = c(ci_first[, 1], ci_conf[, 1]),
   ci_upper = c(ci_first[, 2], ci_conf[, 2]),
   event_free_at_time = c(risk_first, risk_conf),
-  risk_status = c(rep("可估计", 5), risk_conf_status),
+  risk_status = c(rep("estimable", 5), risk_conf_status),
   stringsAsFactors = FALSE
 )
 curve_tab$cumulative_incidence_pct <- 100 * curve_tab$cumulative_incidence
 curve_tab$ci_lower_pct <- 100 * curve_tab$ci_lower
 curve_tab$ci_upper_pct <- 100 * curve_tab$ci_upper
 
-# 风险人数表：只保留论文图需要的两行。
+# number at risk table: retain only two rows needed for manuscript figure.
 risk_tab <- data.frame(
   time_years = times,
   at_risk_first_episode = risk_first,
@@ -83,7 +83,7 @@ risk_tab <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# KM 敏感性：事件时间放在区间中点。
+# KM sensitivity: place event time at interval midpoint.
 km_time <- ifelse(is.na(base$first_index), 9, midpoints[base$first_index])
 km_event <- as.integer(!is.na(base$first_index))
 km_fit <- survfit(Surv(km_time, km_event) ~ 1)
@@ -101,14 +101,14 @@ km_tab$cumulative_incidence_pct <- 100 * km_tab$cumulative_incidence_km
 km_tab$ci_lower_pct <- 100 * km_tab$ci_lower
 km_tab$ci_upper_pct <- 100 * km_tab$ci_upper
 
-# 输出数据。
+# output data.
 write.csv(curve_tab, file.path(OUT, "cumulative_incidence_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(risk_tab, file.path(OUT, "cumulative_incidence_risk_table_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(km_tab, file.path(OUT, "cumulative_incidence_km_sensitivity_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 saveRDS(list(curve = curve_tab, risk = risk_tab, km = km_tab, fit = km_fit),
         file.path(OUT, "cumulative_incidence_2026-09-20.rds"))
 
-# 主图：英文标签，便于后续投稿。risk table 放在 x 轴下方。
+# main figure: English labels, for subsequent submission.risk table place in x below axis.
 draw_figure <- function() {
   layout(matrix(c(1, 2), ncol = 1), heights = c(4.1, 1.7))
   # Upper panel: cumulative incidence curves.
@@ -166,71 +166,71 @@ tryCatch({
   if (length(dev.list())) dev.off()
 })
 
-# 中文报告。
+# Chinese report.
 fmt_int <- function(x) ifelse(is.na(x), "—", format(as.integer(x), big.mark = ",", scientific = FALSE, trim = TRUE))
 report <- c(
-  "# T05：固定队列累积发病曲线（2026-09-20）",
+  "# T05: fixed cohort cumulative incidence curves(2026-09-20)",
   "",
-  "> 输入：T04 的 `interval_incidence_events_2026-09-20.rds`",
-  sprintf("> 主结局：2011 基线正常者（n=%s）首次发生 `impaired_fixed=1`", format(n_base, big.mark = ",")),
-  "> **注意：** 本曲线是 2011 年≥45岁且五波 ms10 均可计分固定队列的条件累积发病，不能外推为全 CHARLS 人群发病率。",
-  "> 主曲线按计划随访时点 2、4、7、9 年展示离散累积发病；风险人数为该时点仍无对应事件的参与者。KM 使用事件时间区间中点进行一致性检查。",
+  "> input: T04 of `interval_incidence_events_2026-09-20.rds`",
+  sprintf("> primary outcome: 2011 unimpaired baseline participants(n=%s)first occurrence `impaired_fixed=1`", format(n_base, big.mark = ",")),
+  "> **note: ** this curve represents 2011 year≥45 age eligible and all five waves ms10 conditional cumulative incidence in fully scorable fixed cohort, cannot extrapolate to entire CHARLS population incidence.",
+  "> primary curve at scheduled follow up times 2, 4, 7, 9 year display of discrete cumulative incidence; number at risk means event free participants at that time.KM use interval midpoint event times for consistency check.",
   "",
-  "## 一、主曲线数据",
+  "## one, primary curve data",
   "",
-  "| 年份 | 随访年 | 累积事件 | 累积发病 | 95%CI | 该时点仍无事件人数 |",
+  "| year | follow up year | cumulative events | cumulative incidence | 95%CI | number still event free at time point |",
   "|---|---:|---:|---:|---:|---:|",
   paste0("| ", c("2011","2013","2015","2018","2020"), " | ", times, " | ", cum_first, " | ",
          fmt_pct(cum_first / n_base), " | ",
          ifelse(is.na(ci_first[,1]), "—", sprintf("%.1f–%.1f%%", 100*ci_first[,1], 100*ci_first[,2])),
          " | ", fmt_int(risk_first), " |"),
   "",
-  "## 二、连续两波确认累积发病（敏感性）",
+  "## two, cumulative incidence confirmed at two consecutive waves(sensitivity)",
   "",
-  "| 年份 | 随访年 | 累积确认事件 | 累积发病 | 95%CI | 该时点仍未确认人数 |",
+  "| year | follow up year | cumulative confirmed events | cumulative incidence | 95%CI | number still unconfirmed at time point |",
   "|---|---:|---:|---:|---:|---:|",
   paste0("| ", c("2011","2013","2015","2018","2020"), " | ", times, " | ", cum_conf, " | ",
          fmt_pct(cum_conf / n_base), " | ",
          ifelse(is.na(ci_conf[,1]), "—", sprintf("%.1f–%.1f%%", 100*ci_conf[,1], 100*ci_conf[,2])),
-         " | ", ifelse(is.na(risk_conf), "不可确认", fmt_int(risk_conf)), " |"),
+         " | ", ifelse(is.na(risk_conf), "unconfirmed", fmt_int(risk_conf)), " |"),
   "",
-  "> 2018–2020 区间无法确认新的连续两波事件，因为需要 2022 年下一波数据；该时点标为“不可确认”，不是 0 事件。",
-  "> 连续确认事件的时间记为连续两波中第一波受损的时间，确认则依赖后一波结果。",
+  "> 2018–2020 interval cannot confirm new two wave events, because requires 2022 next wave data in year; time point marked as“unconfirmed”, is not 0 events.",
+  "> confirmed event time is first impaired wave of consecutive pair, confirmation depends on subsequent wave.",
   "",
-  "## 三、KM 一致性检查（固定队列无删失）",
+  "## three, KM consistency check(fixed cohort has no censoring)",
   "",
-  "KM 使用区间中点 1、3、5.5、8 年作为事件时间。由于本固定队列在 9 年内没有中途删失，KM 估计与离散累积发病数一致；该表用于确认计算一致性，不构成独立敏感性结论。",
+  "KM use interval midpoints 1, 3, 5.5, 8 years as event times.because this fixed cohort within 9 years has no interim censoring, KM estimate agrees with discrete cumulative incidence counts; table checks computational consistency, not an independent sensitivity finding.",
   "",
-  "| 随访年 | 风险人数 | KM 累积发病 | 95%CI |",
+  "| follow up year | number at risk | KM cumulative incidence | 95%CI |",
   "|---:|---:|---:|---:|",
   paste0("| ", km_tab$time_years, " | ", km_tab$n_risk, " | ", fmt_pct(km_tab$cumulative_incidence_km), " | ",
          sprintf("%.1f–%.1f%%", km_tab$ci_lower_pct, km_tab$ci_upper_pct), " |"),
   "",
-  "## 四、结论",
+  "## four, conclusion",
   "",
-  sprintf("- 首次发作累积发病：2 年 %s，4 年 %s，7 年 %s，9 年 %s。",
+  sprintf("- cumulative incidence of first onset: 2 year %s, 4 year %s, 7 year %s, 9 year %s.",
           fmt_pct(cum_first[2]/n_base), fmt_pct(cum_first[3]/n_base),
           fmt_pct(cum_first[4]/n_base), fmt_pct(cum_first[5]/n_base)),
-  sprintf("- 连续两波确认累积发病：2 年 %s，4 年 %s，7 年 %s；9 年不能新增确认。",
+  sprintf("- cumulative incidence confirmed at two consecutive waves: 2 year %s, 4 year %s, 7 year %s; 9 year cannot add confirmed events.",
           fmt_pct(cum_conf[2]/n_base), fmt_pct(cum_conf[3]/n_base), fmt_pct(cum_conf[4]/n_base)),
-  "- 主图适合用于 Figure 4 的累积发病面板，但必须同时展示风险人数。",
-  sprintf("- 单次阈值跨越比例较高，连续确认曲线更适合作为稳健性展示；不要在论文中把首次发作 %s 写成持续认知障碍率。", fmt_pct(cum_first[5] / n_base)),
+  "- main figure suitable for Figure 4 cumulative incidence panel, but must also show numbers at risk.",
+  sprintf("- single threshold crossing proportion is high, consecutively confirmed curve better demonstrates robustness; do not describe first onset in manuscript as %s persistent cognitive impairment rate.", fmt_pct(cum_first[5] / n_base)),
   "",
-  "## 五、输出文件",
+  "## five, output file",
   "",
   "- `cumulative_incidence_2026-09-20.csv`",
   "- `cumulative_incidence_risk_table_2026-09-20.csv`",
   "- `cumulative_incidence_km_sensitivity_2026-09-20.csv`",
   "- `cumulative_incidence_2026-09-20.rds`",
-  "- `output/09_图表/Figure4_cumulative_incidence_2026-09-20.png`",
-  "- `output/09_图表/Figure4_cumulative_incidence_2026-09-20.tif`",
+  "- `output/09_figures_and_tables/Figure4_cumulative_incidence_2026-09-20.png`",
+  "- `output/09_figures_and_tables/Figure4_cumulative_incidence_2026-09-20.tif`",
   "",
-  sprintf("*生成时间：%s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+  sprintf("*generation time: %s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
 )
 writeLines(report, file.path(OUT, "cumulative_incidence_2026-09-20.md"), useBytes = TRUE)
 
-cat("\n========== T05 累积发病曲线完成 ==========\n")
-cat("首次发作累积发病：", paste(fmt_pct(cum_first / n_base), collapse = " | "), "\n", sep = "")
-cat("连续确认累积发病：", paste(fmt_pct(cum_conf / n_base), collapse = " | "), "\n", sep = "")
-cat("主图：", file.path(FIG_DIR, "Figure4_cumulative_incidence_2026-09-20.png"), "\n", sep = "")
-cat("TIFF：", ifelse(tiff_ok, file.path(FIG_DIR, "Figure4_cumulative_incidence_2026-09-20.tif"), "生成失败"), "\n", sep = "")
+cat("\n========== T05 cumulative incidence curves complete ==========\n")
+cat("cumulative incidence of first onset: ", paste(fmt_pct(cum_first / n_base), collapse = " | "), "\n", sep = "")
+cat("consecutively confirmed cumulative incidence: ", paste(fmt_pct(cum_conf / n_base), collapse = " | "), "\n", sep = "")
+cat("main figure: ", file.path(FIG_DIR, "Figure4_cumulative_incidence_2026-09-20.png"), "\n", sep = "")
+cat("TIFF: ", ifelse(tiff_ok, file.path(FIG_DIR, "Figure4_cumulative_incidence_2026-09-20.tif"), "generation failed"), "\n", sep = "")

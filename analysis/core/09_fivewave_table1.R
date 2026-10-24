@@ -1,75 +1,75 @@
 # =============================================================================
-# 09_fivewave_table1.R —— CHARLS 五波（2011/2013/2015/2018/2020）横断面 Table 1：5 表合一
-# 用途：导师见面会（2026-09-20）交付物之一；各波横断面特征按该波认知受损状态分组对比
-# 口径范本：code/02_table1.R（2020 期已交付基线表 v4.4）——
-#   样本 = 该波年龄 ≥ 45 且认知 9 分项完整（cog_complete == 1）；
-#   统计量 = mean (SD) / n (%)；p 值 = wilcox.test / chisq.test；含 Overall（合计）列；未加权
-# 输入：output/02_五波数据与质控/waves_cognition_2026-09-13.rds（code/03_waves_build.R 生成，长表：每行 = 某人某波）
-#       output/01_2020单期基线/analysis_2020.rds（仅用于回补 2020 期城乡变量 rural，见第 0 节）
-# 输出：output/03_五波横断面/五波横断面_5表合一_2026-09-19.xlsx
-#   sheet：说明 ｜ 总览 ｜ T1_2011 … T1_2020（五张分波 Table 1）｜ 合并长表
-# 注意：openxlsx 写出的 xlsx 会带悬空 drawing 引用（包内无 xl/drawings/*，但 rels 指向它），
-#       Excel/pandas 能读、openpyxl 严格模式会报错。生成后请运行：
-#      python code/_checks/repair_xlsx_dangling_refs.py output/03_五波横断面/五波横断面_5表合一_2026-09-19.xlsx
+# 09_fivewave_table1.R —— CHARLS five waves(2011/2013/2015/2018/2020)cross sectional Table 1: 5 combined table
+# purpose: supervisor meeting(2026-09-20)one deliverable; cross sectional characteristics by wave specific cognitive impairment status
+# definition template: code/02_table1.R(2020 previously delivered wave baseline table v4.4)——
+#   sample = age at this wave ≥ 45 and cognition 9 complete components(cog_complete == 1); 
+#   statistic = mean (SD) / n (%); p value = wilcox.test / chisq.test; including Overall(total)columns; unweighted
+# input: output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds(code/03_waves_build.R generate, long format: each row = one participant at one wave)
+#       output/01_2020_single_wave_baseline/analysis_2020.rds(used only for backfilling 2020 wave urban rural variable rural, see section 0 section)
+# output: output/03_five_wave_cross_sectional/five_wave_cross_sectional_5_combined_table_2026_09_19.xlsx
+#   sheet: notes ｜ overview ｜ T1_2011 … T1_2020(five wave specific tables Table 1)｜ combined long format
+# note: openxlsx written xlsx would leave dangling drawing reference(package contains no xl/drawings/*, but rels points to it), 
+#       Excel/pandas readable, openpyxl strict mode raises an error.after generation run: 
+#      python code/_checks/repair_xlsx_dangling_refs.py output/03_five_wave_cross_sectional/five_wave_cross_sectional_5_combined_table_2026_09_19.xlsx
 # =============================================================================
 Sys.setlocale("LC_ALL", "zh_CN.UTF-8")
 .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages({ library(dplyr); library(openxlsx) })
 
-PROJ <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/科研/徐中豪")
-OUT  <- file.path(PROJ, "output", "03_五波横断面")
-dat  <- readRDS(file.path(PROJ, "output", "02_五波数据与质控", "waves_cognition_2026-09-13.rds"))
+PROJ <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/research/Xu_Zhonghao")
+OUT  <- file.path(PROJ, "output", "03_five_wave_cross_sectional")
+dat  <- readRDS(file.path(PROJ, "output", "02_five_wave_data_and_quality_control", "waves_cognition_2026-09-13.rds"))
 
-## ---- 0. 回补 2020 期城乡变量（rural） ----
-# 03_waves_build.R 把 2020 期成品映射进五波长表时未带入 urban3/rural，致 2020 期 rural 全缺失。
-# 此处按 ID 从已交付的 analysis_2020.rds 回补：urban3 = 1（城镇，ba008 ∈ {1,2}）/ 0（农村，ba008 = 3），
-# rural = 1 − urban3，与 02_table1.R 的 Residence（urban_f）口径完全一致；不改动任何已有数据文件。
-a20 <- readRDS(file.path(PROJ, "output", "01_2020单期基线", "analysis_2020.rds"))
+## ---- 0. backfill 2020 wave urban rural variable(rural) ----
+# 03_waves_build.R take 2020 omitted when mapping wave products into five wave long format urban3/rural, causing 2020 wave rural all missing.
+# here use ID from previously delivered analysis_2020.rds backfill: urban3 = 1(urban, ba008 ∈ {1,2})/ 0(rural, ba008 = 3), 
+# rural = 1 − urban3, and 02_table1.R of Residence(urban_f)identical definition; no existing data files modified.
+a20 <- readRDS(file.path(PROJ, "output", "01_2020_single_wave_baseline", "analysis_2020.rds"))
 rural20 <- ifelse(is.na(a20$urban3), NA_integer_, 1L - as.integer(a20$urban3))
 names(rural20) <- as.character(a20$ID)
 i20 <- which(dat$year == 2020)
 dat$rural[i20] <- unname(rural20[as.character(dat$ID[i20])])
-cat(sprintf("【回补】2020 期 rural 非缺失：%d / %d（回补前为 0）\n",
+cat(sprintf("[backfill]2020 wave rural nonmissing: %d / %d(before backfilling was 0)\n",
             sum(!is.na(dat$rural[i20])), length(i20)))
 
-## ---- 1. 分析样本与派生变量 ----
-dat <- dat %>% mutate(dep = as.integer(cesd10 >= 10))   # 抑郁：CES-D-10 ≥ 10（与 02_table1.R 一致）
+## ---- 1. analysis sample and derived variables ----
+dat <- dat %>% mutate(dep = as.integer(cesd10 >= 10))   # depression: CES-D-10 ≥ 10(and 02_table1.R consistent)
 ana <- dat %>% filter(age >= 45, cog_complete == 1) %>%
   mutate(cog_f = factor(cog_B, levels = c(0, 1), labels = c("Normal", "Impairment")))
 YEARS   <- c(2011, 2013, 2015, 2018, 2020)
 EDU_LEV <- c("Less than primary", "Primary school", "Middle school", "High school or above")
-EDU_CN  <- c("小学以下", "小学", "初中", "高中及以上")
+EDU_CN  <- c("below primary school", "primary school", "middle school", "high school or above")
 AGE_LEV <- c("45-54", "55-64", "65-74", "≥75")
 ana <- ana %>% mutate(
-  age_cat = cut(age, breaks = c(44, 54, 64, 74, Inf), labels = AGE_LEV),   # 与 02_table1.R 相同分组
+  age_cat = cut(age, breaks = c(44, 54, 64, 74, Inf), labels = AGE_LEV),   # and 02_table1.R same grouping
   edu_cn  = factor(EDU_CN[match(edu_group, EDU_LEV)], levels = EDU_CN))
 
-## ---- 2. 格式化与行构造函数（连续 / 二分类 / 多分类；五波严格同序同行） ----
+## ---- 2. formatting and row construction functions(continuous / binary / multicategory; strictly identical row ordering across five waves) ----
 fmt_p  <- function(p) ifelse(is.na(p), "", ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)))
 fmt_ms <- function(x) if (sum(!is.na(x)) == 0) "—" else
   sprintf("%.1f (%.1f)", mean(x, na.rm = TRUE), sd(x, na.rm = TRUE))
-fmt_np <- function(x) {                       # 二分类：取值 1 的 n (%)，分母 = 非缺失
+fmt_np <- function(x) {                       # binary: values 1 of n (%), denominator = nonmissing
   n <- sum(!is.na(x)); if (n == 0) return("—")
   sprintf("%d (%.1f%%)", sum(x == 1, na.rm = TRUE), 100 * sum(x == 1, na.rm = TRUE) / n)
 }
-cell_lv <- function(x, lv) {                  # 多分类某水平：n (%)，分母 = 非缺失
+cell_lv <- function(x, lv) {                  # one level of a multicategory variable: n (%), denominator = nonmissing
   n <- sum(!is.na(x)); if (n == 0) return("—")
   sprintf("%d (%.1f%%)", sum(x == lv, na.rm = TRUE), 100 * sum(x == lv, na.rm = TRUE) / n)
 }
-# 五波中任一波有缺失的变量：为保证"五波严格同序同行"，这些变量在每一波都强制输出缺失计数行
-# （无缺失的波显示 0）；认知分项与年龄在分析样本中按构造无缺失，不设缺失行
+# variables missing in any of five waves: to ensure"strictly identical row ordering across five waves", always output a missing count row for these variables in every wave
+# (waves without missing values show 0); cognitive components and age are complete by sample construction, no missingness row
 MISS_VARS <- c("edu_cn", "rural", "hibp", "dyslip", "diab", "heart", "stroke",
                "lung", "kidney", "dep", "adl", "iadl", "iadl2", "pain_any", "sleep_h", "pa_any")
-miss_row <- function(d, var, force = FALSE) {   # 缺失计数行（force = TRUE 时无缺失也显示 0）
+miss_row <- function(d, var, force = FALSE) {   # missing count row(force = TRUE show even when none are missing 0)
   x <- d[[var]]; if (!force && !any(is.na(x))) return(NULL)
-  data.frame(Characteristic = "　缺失, n",
+  data.frame(Characteristic = "　missing, n",
              Normal = as.character(sum(is.na(x[d$cog_f == "Normal"]))),
              Impairment = as.character(sum(is.na(x[d$cog_f == "Impairment"]))),
              Overall = as.character(sum(is.na(x))), p = "",
              stringsAsFactors = FALSE, check.names = FALSE)
 }
 
-row_cont <- function(d, var, label) {         # 连续变量：mean (SD)，wilcox 秩和检验
+row_cont <- function(d, var, label) {         # continuous variables: mean (SD), wilcox rank sum test
   x <- d[[var]]
   p <- tryCatch(suppressWarnings(
     wilcox.test(x[d$cog_f == "Normal"], x[d$cog_f == "Impairment"])$p.value),
@@ -82,15 +82,15 @@ row_cont <- function(d, var, label) {         # 连续变量：mean (SD)，wilco
   rbind(r, miss_row(d, var, force = var %in% MISS_VARS))
 }
 
-row_bin <- function(d, var, label, not_measured = FALSE) {   # 二分类（0/1）：n (%)，卡方检验
+row_bin <- function(d, var, label, not_measured = FALSE) {   # binary(0/1): n (%), chi squared test
   x <- d[[var]]
-  if (not_measured || sum(!is.na(x)) == 0) {                 # 该波未施测（2011 年 IADL）
-    # 行名与其他波保持一致（保证五波严格同序同行），未纳入原因写在单元格内
+  if (not_measured || sum(!is.na(x)) == 0) {                 # not assessed at this wave(2011 year IADL)
+    # keep row names consistent with other waves(ensure identical rows and order across five waves), write exclusion reason in cell
     r <- data.frame(Characteristic = label,
-                    Normal = "—（2011 期未纳入）", Impairment = "—（2011 期未纳入）",
-                    Overall = "—（2011 期未纳入）", p = "",
+                    Normal = "—(2011 wave excluded)", Impairment = "—(2011 wave excluded)",
+                    Overall = "—(2011 wave excluded)", p = "",
                     stringsAsFactors = FALSE, check.names = FALSE)
-    # 强制补一行缺失计数（= 该波分组样本量，表明全员缺失），保持五波行数一致
+    # force a missing count row(= wave specific group sample size, indicates all participants missing), keep identical row counts across five waves
     return(rbind(r, miss_row(d, var, force = TRUE)))
   }
   ok <- !is.na(x) & !is.na(d$cog_f)
@@ -103,11 +103,11 @@ row_bin <- function(d, var, label, not_measured = FALSE) {   # 二分类（0/1�
   rbind(r, miss_row(d, var, force = var %in% MISS_VARS))
 }
 
-row_cat <- function(d, var, label, levs) {    # 多分类：标题行（带 p）+ 各水平行
+row_cat <- function(d, var, label, levs) {    # multicategory: heading row(with p)+ rows for each level
   x <- d[[var]]
   ok <- !is.na(x) & !is.na(d$cog_f)
   p  <- tryCatch(chisq.test(table(x[ok], d$cog_f[ok]))$p.value, error = function(e) NA_real_)
-  head <- data.frame(Characteristic = paste0(label, "，n (%)"),
+  head <- data.frame(Characteristic = paste0(label, ", n (%)"),
                      Normal = "", Impairment = "", Overall = "", p = fmt_p(p),
                      stringsAsFactors = FALSE, check.names = FALSE)
   lv_rows <- do.call(rbind, lapply(levs, function(lv)
@@ -119,40 +119,40 @@ row_cat <- function(d, var, label, levs) {    # 多分类：标题行（带 p）
   rbind(head, lv_rows, miss_row(d, var, force = var %in% MISS_VARS))
 }
 
-build_t1 <- function(d) {                     # 单波 Table 1（行顺序五波完全一致）
-  d <- d %>% filter(!is.na(cog_f))            # 2015 期 2 人教育缺失 → cog_B 为 NA，剔除
+build_t1 <- function(d) {                     # single wave Table 1(identical row order across five waves)
+  d <- d %>% filter(!is.na(cog_f))            # 2015 wave 2 participants missing education → cog_B is NA, remove
   bind_rows(
-    row_cont(d, "age", "年龄，岁"),
-    row_cat(d, "age_cat", "年龄组", AGE_LEV),
-    row_bin(d, "female", "女性，n (%)"),
-    row_cat(d, "edu_cn", "教育", EDU_CN),
-    row_bin(d, "rural", "居住在农村，n (%)"),
-    row_bin(d, "hibp", "高血压，n (%)"),
-    row_bin(d, "dyslip", "血脂异常，n (%)"),
-    row_bin(d, "diab", "糖尿病，n (%)"),
-    row_bin(d, "heart", "心脏病，n (%)"),
-    row_bin(d, "stroke", "卒中，n (%)"),
-    row_bin(d, "lung", "慢性肺病，n (%)"),
-    row_bin(d, "kidney", "肾病，n (%)"),
-    row_bin(d, "dep", "抑郁（CES-D-10 ≥ 10），n (%)"),
-    row_bin(d, "adl", "ADL 受限，n (%)"),
-    row_bin(d, "iadl", "IADL 受限，n (%)", not_measured = (d$year[1] == 2011)),
-    row_bin(d, "iadl2", "IADL 受限（理财+服药两条目），n (%)"),
-    row_bin(d, "pain_any", "躯体疼痛，n (%)"),
-    row_cont(d, "sleep_h", "夜间睡眠时长，h"),
-    row_bin(d, "pa_any", "规律体力活动，n (%)"),
-    row_cont(d, "memory_raw", "记忆分（0-20）"),
-    row_cont(d, "orient", "定向（0-5）"),
-    row_cont(d, "ser7", "连续减 7（0-5）"),
-    row_cont(d, "draw", "画图（0-1）"),
-    row_cont(d, "mental", "精神状态（0-11）"),
-    row_cont(d, "total", "总体认知（0-31）"))
+    row_cont(d, "age", "age, years old"),
+    row_cat(d, "age_cat", "age_group", AGE_LEV),
+    row_bin(d, "female", "female, n (%)"),
+    row_cat(d, "edu_cn", "education", EDU_CN),
+    row_bin(d, "rural", "rural residence, n (%)"),
+    row_bin(d, "hibp", "hypertension, n (%)"),
+    row_bin(d, "dyslip", "dyslipidemia, n (%)"),
+    row_bin(d, "diab", "diabetes, n (%)"),
+    row_bin(d, "heart", "heart disease, n (%)"),
+    row_bin(d, "stroke", "stroke, n (%)"),
+    row_bin(d, "lung", "chronic lung disease, n (%)"),
+    row_bin(d, "kidney", "kidney disease, n (%)"),
+    row_bin(d, "dep", "depression(CES-D-10 ≥ 10), n (%)"),
+    row_bin(d, "adl", "ADL limited, n (%)"),
+    row_bin(d, "iadl", "IADL limited, n (%)", not_measured = (d$year[1] == 2011)),
+    row_bin(d, "iadl2", "IADL limited(managing finances+two medication items), n (%)"),
+    row_bin(d, "pain_any", "bodily pain, n (%)"),
+    row_cont(d, "sleep_h", "nighttime sleep duration, h"),
+    row_bin(d, "pa_any", "regular physical activity, n (%)"),
+    row_cont(d, "memory_raw", "memory score(0-20)"),
+    row_cont(d, "orient", "orientation(0-5)"),
+    row_cont(d, "ser7", "serial subtraction of 7(0-5)"),
+    row_cont(d, "draw", "figure copying(0-1)"),
+    row_cont(d, "mental", "mental status(0-11)"),
+    row_cont(d, "total", "global cognition(0-31)"))
 }
 
 tabs <- setNames(lapply(YEARS, function(y) build_t1(ana %>% filter(year == y))), YEARS)
 
-## ---- 3. 总览（每波一行）+ 与 2026-09-13 分波表的核对 ----
-prev_ci <- function(v) {                      # 未加权 prop.test 95%CI
+## ---- 3. overview(one row per wave)+ and 2026-09-13 verification of wave specific tables ----
+prev_ci <- function(v) {                      # unweighted prop.test 95%CI
   k <- sum(v == 1, na.rm = TRUE); n <- sum(!is.na(v))
   ci <- prop.test(k, n)$conf.int
   sprintf("%.1f%% (%.1f-%.1f)", 100 * k / n, 100 * ci[1], 100 * ci[2])
@@ -160,112 +160,112 @@ prev_ci <- function(v) {                      # 未加权 prop.test 95%CI
 overview <- do.call(rbind, lapply(YEARS, function(y) {
   dy <- dat %>% filter(year == y)
   a  <- dy %>% filter(age >= 45, cog_complete == 1)
-  # 不含画图（0-30）口径的敏感性：切点同样按"本波内、本教育层 total30 的 均值 − 1SD"
+  # excluding figure copying(0-30)definition sensitivity: cutoff also based on"within this wave, this education stratum total30 of mean − 1SD"
   a$total30 <- a$total - a$draw
-  # 注意：教育缺失者不参与（否则会被单独成组、用自己的均值−SD 定阈值）；与 10 号脚本口径一致
+  # note: exclude missing education(otherwise forms a separate group, using its own mean−SD set threshold); and 10 consistent with numbered script definition
   thr30 <- a %>% filter(!is.na(edu_group)) %>% group_by(edu_group) %>%
     summarise(thr30 = mean(total30, na.rm = TRUE) - sd(total30, na.rm = TRUE), .groups = "drop")
   a <- a %>% left_join(thr30, by = "edu_group") %>%
     mutate(imp30 = as.integer(total30 < thr30))
-  data.frame(年份 = y,
-             `45岁及以上样本` = sum(dy$age >= 45, na.rm = TRUE),
-             `认知完整n` = nrow(a),
-             `患病率B(教育分层)` = prev_ci(a$cog_B),
-             `患病率A(整体均值-1SD)` = prev_ci(a$cog_A),
-             `患病率C(最低四分位)` = prev_ci(a$cog_C),
-             `患病率B(不含画图,0-30)` = prev_ci(a$imp30),
+  data.frame(year = y,
+             `45_sample_aged_at_least` = sum(dy$age >= 45, na.rm = TRUE),
+             `complete_cognition_n` = nrow(a),
+             `prevalence_B_education_strata` = prev_ci(a$cog_B),
+             `prevalence_A_overall_mean_1SD` = prev_ci(a$cog_A),
+             `prevalence_C_lowest_quartile` = prev_ci(a$cog_C),
+             `prevalence_B_excluding_figure_copying_0_30` = prev_ci(a$imp30),
              check.names = FALSE, stringsAsFactors = FALSE)
 }))
 
-# 核对：与已交付的分波汇总表逐格比对（认知完整 n、患病率 B/A/C，0.1% 精度）
-ref <- read.csv(file.path(PROJ, "output", "02_五波数据与质控", "waves_cognition_table_2026-09-13.csv"),
+# verify: cell by cell comparison with delivered wave summaries(complete cognition n, prevalence B/A/C, 0.1% precision)
+ref <- read.csv(file.path(PROJ, "output", "02_five_wave_data_and_quality_control", "waves_cognition_table_2026-09-13.csv"),
                 fileEncoding = "UTF-8", check.names = FALSE)
 chk <- do.call(rbind, lapply(seq_len(nrow(overview)), function(i) {
-  r_ref <- ref[ref$"年份" == overview$年份[i], ]
+  r_ref <- ref[ref$"year" == overview$year[i], ]
   cmp <- function(new, ref_str) identical(substr(new, 1, 4), substr(ref_str, 1, 4))
-  data.frame(年份 = overview$年份[i],
-             认知完整n_新 = overview$"认知完整n"[i], 认知完整n_参考 = r_ref$"认知完整",
-             n一致 = overview$"认知完整n"[i] == r_ref$"认知完整",
-             患病率B_新 = overview$"患病率B(教育分层)"[i], 患病率B_参考 = r_ref$"患病率B",
-             B一致 = cmp(overview$"患病率B(教育分层)"[i], r_ref$"患病率B"),
-             A一致 = cmp(overview$"患病率A(整体均值-1SD)"[i], r_ref$"患病率A"),
-             C一致 = cmp(overview$"患病率C(最低四分位)"[i], r_ref$"患病率C"),
+  data.frame(year = overview$year[i],
+             complete_cognition_n_new = overview$"complete_cognition_n"[i], complete_cognition_n_reference = r_ref$"complete_cognition",
+             n_consistent = overview$"complete_cognition_n"[i] == r_ref$"complete_cognition",
+             prevalence_B_new = overview$"prevalence_B_education_strata"[i], prevalence_B_reference = r_ref$"prevalence_B",
+             B_consistent = cmp(overview$"prevalence_B_education_strata"[i], r_ref$"prevalence_B"),
+             A_consistent = cmp(overview$"prevalence_A_overall_mean_1SD"[i], r_ref$"prevalence_A"),
+             C_consistent = cmp(overview$"prevalence_C_lowest_quartile"[i], r_ref$"prevalence_C"),
              check.names = FALSE, stringsAsFactors = FALSE)
 }))
-cat("\n===== 核对：新总览 vs waves_cognition_table_2026-09-13.csv =====\n"); print(chk)
-# 硬性核对：2020 期必须复现已交付基线的 14,655 与 15.6%
-n2020   <- overview$"认知完整n"[overview$年份 == 2020]
-prevB20 <- as.numeric(substr(overview$"患病率B(教育分层)"[overview$年份 == 2020], 1, 4))
+cat("\n===== verify: new overview vs waves_cognition_table_2026-09-13.csv =====\n"); print(chk)
+# mandatory verification: 2020 wave must reproduce delivered baseline 14,655 and 15.6%
+n2020   <- overview$"complete_cognition_n"[overview$year == 2020]
+prevB20 <- as.numeric(substr(overview$"prevalence_B_education_strata"[overview$year == 2020], 1, 4))
 if (!(n2020 == 14655 && abs(prevB20 - 15.6) < 0.05))
-  stop("核对失败：2020 期样本量/患病率与已交付基线（14,655 / 15.6%）不一致，请排查后再交付！")
-if (!all(chk$n一致 & chk$B一致 & chk$A一致 & chk$C一致))
-  warning("有波次与 2026-09-13 分波表不一致，请检查核对表！")
-cat("核对通过：2020 期 n = 14,655、患病率 B = 15.6%，与已交付基线一致；各波与分波表一致。\n")
+  stop("verification failed: 2020 wave sample size/prevalence and delivered baseline(14,655 / 15.6%)inconsistent, investigate before delivery!")
+if (!all(chk$n_consistent & chk$B_consistent & chk$A_consistent & chk$C_consistent))
+  warning("some waves differ from 2026-09-13 wave specific table mismatch, check verification table!")
+cat("verification passed: 2020 wave n = 14,655, prevalence B = 15.6%, consistent with delivered baseline; all waves match wave specific tables.\n")
 
-## ---- 4. 写出 Excel（说明 / 总览 / 五张分波表 / 合并长表） ----
+## ---- 4. write Excel(notes / overview / five wave specific tables / combined long format) ----
 wb <- createWorkbook()
 
 note_lines <- c(
-  "CHARLS 五波横断面 Table 1（5 表合一）——口径说明",
+  "CHARLS five wave cross sectional Table 1(5 combined table)——definition notes",
   "",
-  paste0("1. 数据来源：output/02_五波数据与质控/waves_cognition_2026-09-13.rds（code/03_waves_build.R，2026-09-13 生成；",
-         "长表，每行 = 某人某波）。本表脚本：code/09_fivewave_table1.R，生成日期 2026-09-19。"),
-  paste0("2. 分析样本：各波年龄 ≥ 45 岁且认知 9 分项完整（cog_complete == 1）。各波 n：2011 = 12,288；",
-         "2013 = 13,687；2015 = 15,859（其中 2 人教育缺失、无法计算教育分层切点，分波分组表实际 n = 15,857）；",
-         "2018 = 11,653；2020 = 14,655。"),
-  paste0("3. 分组变量（结局）：cog_B = 教育分层切点——本波内、本教育层的认知总分均值 − 1SD；",
-         "总分 = 记忆分（0-20）+ 精神状态（0-11，含画图），范围 0-31。口径与 2020 期已交付基线表",
-         "（code/02_table1.R，v4.4）完全一致。"),
-  paste0("4. 统计口径：连续变量报 mean (SD)、组间比较用 wilcox.test；分类变量报 n (%)、比较用 chisq.test；",
-         "含合计（Overall）列；全部未加权。变量缺失以「缺失, n」行如实计数。"),
-  paste0("5. IADL 有两行，请注意区分：",
-         "① 主行「IADL 受限」= 官方汇总口径：2013–2018 用 Harmonized r*w*iadla（打电话+理财+服药，三条目），",
-         "2020 为已交付 Paper 1 口径（六条目任一受限）；2011 期未纳入（该期没问「打电话」，Harmonized 无 r1iadla）。",
-         "口径提示：2020 期若按三条目重算为 11.9%，而现列 19.8% 是六条目口径，故跨波比较请用第②行。",
-         "② 「IADL 受限（理财+服药两条目）」= 用 r*w*moneya + r*w*medsa（2020 期用原始 db022+db020 ≥2）拼出的五波同口径版本，",
-         "受限率 11.9% / 9.4% / 9.4% / 8.0% / 9.0%，是唯一五波都可比、且 2011 期也有值的 IADL 口径。"),
-  paste0("6. 【疼痛跨波不可直接比较】疼痛变量编码口径跨波不同：2011/2015 为 da041（1 = 有痛），",
-         "2013 为 wb16、2018 为 da041_w4（疼痛等级 ≥ 2 记有痛），2020 为 da027。",
-         "2018/2020 疼痛比例（58.8% / 58.2%）远高于前三波（28%-35%）系口径差异所致，跨波比较需谨慎。"),
-  paste0("7. 【记忆分项跨波提醒】2018 期即时回忆词表内容与前三波不同，且 2018/2020 为 3 次学习试次",
-         "（2011/2015 仅 1 次）；CHARLS 官方提示第 4/5 波回忆得分偏高。记忆分、总分跨波只作描述。"),
-  paste0("8. 体力活动（pa_any）在 2011/2013/2015 缺失较多（仅部分样本有记录，缺失 5,257 / 7,018 / 6,206 人），",
-         "表中如实报缺失计数。"),
-  paste0("9. 城乡（rural）：2020 期系按 ID 从 analysis_2020.rds 的 urban3 回补（rural = 1 − urban3，",
-         "与已交付 2020 基线表 Residence 口径一致）；2015/2018 期分别有 1,752 / 1,112 人缺失，如实计数。"),
-  paste0("10. 教育与性别的组间 p 值不可解释为关联检验：结局（cog_B）按教育分层定义，",
-         "教育（及与年龄、性别相关的构成）差异部分按构造产生；认知分项为结局总分的组成部分，",
-         "其组间差异同样按构造存在（与 02_table1.R 脚注一致）。"),
-  "11. 总览 sheet 的患病率为未加权估计，95%CI 用 prop.test（正态近似连续性校正）。",
-  "12. 各 sheet 内容：总览 = 每波一行（样本量与三种切点患病率 + 不含画图口径）；T1_2011 … T1_2020 = 五张分波 Table 1；",
-  "    合并长表 = 五张表拼成长表（wave 列区分），便于横向扫读。",
-  paste0("13. 【画图项跨波不可比】2011/2013/2015 的 DC025 只判「画出 / 画不出」（宽松口径），2018 起 DC024_W4 / DC009 改为严格标准",
-         "（A 两个五边形相交成四边形、B 五边形内所有角完整）。2020 年通过率仅 34.6%（2011–2018 为 67–71%），",
-         "与 2020 年访员主要线上培训、判分执行更严有关，属测量 artifact，不代表真实下降；",
-         "故「精神状态分（含画图）」「总分（0-31）」不宜跨波比较，总览另给了一列「患病率B(不含画图,0-30)」作敏感性。")
+  paste0("1. data sources: output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds(code/03_waves_build.R, 2026-09-13 generate; ",
+         "long format, each row = one participant at one wave).script for this table: code/09_fivewave_table1.R, generation date 2026-09-19."),
+  paste0("2. analysis sample: age at each wave ≥ 45 age eligible and cognition 9 complete components(cog_complete == 1).each wave n: 2011 = 12,288; ",
+         "2013 = 13,687; 2015 = 15,859(of which 2 participants missing education, cannot calculate education specific cutoff, actual grouping in wave table n = 15,857); ",
+         "2018 = 11,653; 2020 = 14,655."),
+  paste0("3. grouping variable(outcome): cog_B = education specific cutoff——within this wave, mean total cognitive score within education stratum − 1SD; ",
+         "total score = memory score(0-20)+ mental status(0-11, including figure copying), range 0-31.definition and 2020 previously delivered wave baseline table",
+         "(code/02_table1.R, v4.4)identical."),
+  paste0("4. statistical definitions: continuous variables reported as mean (SD), group comparisons use wilcox.test; categorical variables reported as n (%), comparisons use chisq.test; ",
+         "including total(Overall)columns; all unweighted.missing values reported in[missing, n]rows with actual counts."),
+  paste0("5. IADL two rows present, distinguish carefully: ",
+         "① main row[IADL limited]= official summary definition: 2013–2018 using Harmonized r*w*iadla(making telephone calls+managing finances+taking medication, three items), ",
+         "2020 is previously delivered Paper 1 definition(any limitation in six items); 2011 wave excluded(not asked at this wave[making telephone calls], Harmonized none r1iadla).",
+         "definition reminder: 2020 wave recalculated with three items gives 11.9%, whereas current column 19.8% uses six item definition, therefore use row for cross wave comparisons ② rows.",
+         "② [IADL limited(managing finances+two medication items)]= using r*w*moneya + r*w*medsa(2020 wave uses raw db022+db020 ≥2)five wave consistent version assembled from, ",
+         "limitation rate 11.9% / 9.4% / 9.4% / 8.0% / 9.0%, only measure comparable at all five waves, and 2011 also available at this wave IADL definition."),
+  paste0("6. [pain not directly comparable across waves]pain variable coding differs across waves: 2011/2015 is da041(1 = pain present), ",
+         "2013 is wb16, 2018 is da041_w4(pain severity ≥ 2 classify as pain present), 2020 is da027.",
+         "2018/2020 pain prevalence(58.8% / 58.2%)much higher than the first three waves(28%-35%)due to definition differences, interpret cross wave comparison cautiously."),
+  paste0("7. [cross wave memory component reminder]2018 word list for immediate recall differs from first three waves, and 2018/2020 is 3 learning trials",
+         "(2011/2015 only 1 times); CHARLS official note: number 4/5 wave recall scores elevated.memory score, total score cross wave comparisons are descriptive only."),
+  paste0("8. physical activity(pa_any)at 2011/2013/2015 substantial missingness(recorded in only part of sample, missing 5,257 / 7,018 / 6,206 participants), ",
+         "report actual missing counts in table."),
+  paste0("9. urban or rural(rural): 2020 wave based on ID from analysis_2020.rds of urban3 backfill(rural = 1 − urban3, ",
+         "and previously delivered 2020 baseline table Residence consistent definition); 2015/2018 waves respectively have 1,752 / 1,112 participants missing, report actual counts."),
+  paste0("10._between_group_education_and_sex_p_value_is_not_an_association_test_outcome_cog_B_defined_within_education_strata",
+         "education(and association with age, sex related composition)differences partly arise by construction; cognitive components form part of the outcome total, ",
+         "between group differences also arise by construction(and 02_table1.R consistent footnotes)."),
+  "11._overview_sheet_prevalence_is_unweighted_95_CI_using_prop.test_normal_approximation_with_continuity_correction_.",
+  "12._each_sheet_content_overview_one_row_per_wave_sample_size_and_prevalence_under_three_cutoffs_definition_excluding_figure_copying_T1_2011_T1_2020_five_wave_specific_tables_Table_1",
+  "    combined long format = combine five tables into long format(wave distinguished by column), facilitates comparison across waves.",
+  paste0("13._figure_copying_item_not_comparable_across_waves_2011/2013/2015_of_DC025_classify_only_successfully_copied/unable_to_copy_lenient_definition_2018_onward_DC024_W4/DC009_changed_to_strict_criterion",
+         "(A intersection of two pentagons forms quadrilateral, B all pentagon angles complete).2020 year pass rate only 34.6%(2011–2018 is 67–71%), ",
+         "and 2020 year interviewers trained mainly online, related to stricter scoring, reflects measurement artifact, does not represent true decline; ",
+         "therefore[mental status score(including figure copying)][total score(0-31)]unsuitable for cross wave comparison, overview provides an additional column[prevalence B(excluding figure copying,0-30)]for sensitivity analysis.")
 )
-addWorksheet(wb, "说明")
-writeData(wb, "说明", data.frame(说明 = note_lines, check.names = FALSE))
-setColWidths(wb, "说明", cols = 1, widths = 120)
+addWorksheet(wb, "notes")
+writeData(wb, "notes", data.frame(notes = note_lines, check.names = FALSE))
+setColWidths(wb, "notes", cols = 1, widths = 120)
 
-addWorksheet(wb, "总览")
-writeData(wb, "总览", overview)
-writeData(wb, "总览", "以下为与 output/02_五波数据与质控/waves_cognition_table_2026-09-13.csv 的逐格核对（脚本自动完成，全部一致）：",
+addWorksheet(wb, "overview")
+writeData(wb, "overview", overview)
+writeData(wb, "overview", "below compared with output/02_five_wave_data_and_quality_control/waves_cognition_table_2026-09-13.csv cell by cell verification(automatically performed by script, all consistent): ",
           startRow = nrow(overview) + 3)
-writeData(wb, "总览", chk, startRow = nrow(overview) + 4)
-setColWidths(wb, "总览", cols = 1:6, widths = 18)
+writeData(wb, "overview", chk, startRow = nrow(overview) + 4)
+setColWidths(wb, "overview", cols = 1:6, widths = 18)
 
-FOOT <- paste0("注：连续变量为 mean (SD)，组间比较为 wilcox.test；分类变量为 n (%)，比较为 chisq.test；",
-               "缺失以「缺失, n」行计数。教育与性别的组间差异按结局（教育分层切点）定义部分按构造产生，",
-               "p 值不可解释为关联检验；认知分项为结局总分的组成部分。")
+FOOT <- paste0("note: continuous variables are mean (SD), group comparison is wilcox.test; categorical variables are n (%), comparison is chisq.test; ",
+               "missing values in[missing, n]row counts.between group education and sex differences reflect outcome(education specific cutoff)definition partly creates these differences, ",
+               "p value is not an association test; cognitive components form part of the outcome total.")
 for (y in YEARS) {
   sn <- paste0("T1_", y)
   dy <- ana %>% filter(year == y, !is.na(cog_f))
   n0 <- sum(dy$cog_f == "Normal"); n1 <- sum(dy$cog_f == "Impairment")
   addWorksheet(wb, sn)
-  writeData(wb, sn, sprintf("%d 期横断面 Table 1（样本：年龄 ≥ 45 且认知完整；分组：cog_B 教育分层切点）", y),
+  writeData(wb, sn, sprintf("%d wave cross sectional Table 1(sample: age ≥ 45 and complete cognition; grouping: cog_B education specific cutoff)", y),
             startRow = 1)
-  writeData(wb, sn, sprintf("Normal（认知正常）n = %s ｜ Impairment（认知受损）n = %s ｜ 合计 n = %s",
+  writeData(wb, sn, sprintf("Normal(unimpaired cognition)n = %s ｜ Impairment(cognitive impairment)n = %s ｜ total n = %s",
                             format(n0, big.mark = ","), format(n1, big.mark = ","),
                             format(n0 + n1, big.mark = ",")), startRow = 2)
   writeData(wb, sn, tabs[[as.character(y)]], startRow = 4)
@@ -275,12 +275,12 @@ for (y in YEARS) {
 
 long_tab <- bind_rows(lapply(YEARS, function(y)
   cbind(wave = y, tabs[[as.character(y)]], stringsAsFactors = FALSE)))
-addWorksheet(wb, "合并长表")
-writeData(wb, "合并长表", long_tab)
-setColWidths(wb, "合并长表", cols = 1, widths = 8)
-setColWidths(wb, "合并长表", cols = 2, widths = 42); setColWidths(wb, "合并长表", cols = 3:6, widths = 16)
+addWorksheet(wb, "combined long format")
+writeData(wb, "combined long format", long_tab)
+setColWidths(wb, "combined long format", cols = 1, widths = 8)
+setColWidths(wb, "combined long format", cols = 2, widths = 42); setColWidths(wb, "combined long format", cols = 3:6, widths = 16)
 
-f_xlsx <- file.path(OUT, "五波横断面_5表合一_2026-09-19.xlsx")
+f_xlsx <- file.path(OUT, "five_wave_cross_sectional_5_combined_table_2026_09_19.xlsx")
 saveWorkbook(wb, f_xlsx, overwrite = TRUE)
-cat("\n完成：", f_xlsx, "\n", sep = "")
-cat("sheet：说明 ｜ 总览 ｜ T1_2011 … T1_2020 ｜ 合并长表\n")
+cat("\n complete: ", f_xlsx, "\n", sep = "")
+cat("sheet: notes ｜ overview ｜ T1_2011 … T1_2020 ｜ combined long format\n")

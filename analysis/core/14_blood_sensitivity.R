@@ -1,5 +1,5 @@
 # ============================================================
-# 血液统计敏感性分析：血液权重 + 血液/随访选择 IPW
+# blood analysis sensitivity: blood sample weights + blood/follow up selection IPW
 # ============================================================
 
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
@@ -10,10 +10,10 @@ suppressPackageStartupMessages({
   library(survey)
 })
 
-in_analysis <- "output/07_血液指标/analysis_blood_two_waves_fixedcohort_2026-09-19.rds"
-in_cohort   <- "output/04_纵向队列/cohort_change_2026-09-13.rds"
-in_waves    <- "output/02_五波数据与质控/waves_cognition_2026-09-13.rds"
-out_dir     <- "output/07_血液指标"
+in_analysis <- "output/07_blood_biomarkers/analysis_blood_two_waves_fixedcohort_2026-09-19.rds"
+in_cohort   <- "output/04_longitudinal_cohort/cohort_change_2026-09-13.rds"
+in_waves    <- "output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds"
+out_dir     <- "output/07_blood_biomarkers"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 norm_id <- function(x) {
@@ -59,7 +59,7 @@ d <- a %>% left_join(base_cov, by = "KEY") %>%
     z_dlogcrp = as.numeric(scale(d_logcrp))
   )
 
-# ---------------- 1. 选择模型：固定队列且 2011 血液可用 / 两波核心三项完整 ----------------
+# ---------------- 1. selection model: fixed cohort and 2011 blood data available / all three core biomarkers complete at both waves ----------------
 w2011 <- readRDS(in_waves) %>%
   filter(year == 2011, age >= 45, !is.na(mental)) %>%
   mutate(KEY = norm_id(IDn)) %>%
@@ -106,7 +106,7 @@ seldat <- seldat %>%
 
 d <- d %>% left_join(seldat %>% select(KEY, p_sel_2011, p_sel_both, ipw_2011, ipw_both), by = "KEY")
 
-# 选择偏倚描述：SMD
+# selection bias description: SMD
 smd_fun <- function(x, g) {
   ok <- !is.na(x) & !is.na(g)
   x <- x[ok]; g <- g[ok]
@@ -116,7 +116,7 @@ smd_fun <- function(x, g) {
 }
 sel_smd <- tibble(
   variable = c("age", "female", "rural", "mental", "depression", "ADL", "pain", "hypertension"),
-  label = c("年龄", "女性", "农村", "基线认知", "抑郁", "ADL受限", "疼痛", "高血压"),
+  label = c("age", "female", "rural", "baseline cognition", "depression", "ADL_limited", "pain", "hypertension"),
   smd_2011_blood = c(
     smd_fun(w2011$age, w2011$KEY %in% d$KEY[d$any_2011]),
     smd_fun(w2011$female, w2011$KEY %in% d$KEY[d$any_2011]),
@@ -139,7 +139,7 @@ sel_smd <- tibble(
   )
 )
 
-# ---------------- 2. 权重敏感性模型 ----------------
+# ---------------- 2. weight sensitivity model ----------------
 base_covars <- c("age2011", "female", "edu_group", "rural", "y2011")
 
 extract_svy_glm <- function(fit, outcome_label, model_label, exposure_label) {
@@ -199,7 +199,7 @@ for (outcome_info in list(
   }
 }
 
-# 血液变化模型：2015 weight/selection IPW
+# blood biomarker change model: 2015 weight/selection IPW
 d <- d %>% mutate(w_comb_2015 = pmin(pmax(bloodweight_2015 * ipw_both, quantile(bloodweight_2015 * ipw_both, .01, na.rm = TRUE)), quantile(bloodweight_2015 * ipw_both, .99, na.rm = TRUE)))
 for (i in seq_along(c("z_dplt", "z_dwbc", "z_dlogcrp"))) {
   ex <- c("z_dplt", "z_dwbc", "z_dlogcrp")[i]
@@ -215,7 +215,7 @@ for (i in seq_along(c("z_dplt", "z_dwbc", "z_dlogcrp"))) {
 weighted <- bind_rows(weighted_rows)
 weighted$q <- NA_real_
 for (key in unique(weighted[, c("outcome", "model")])) {}
-# 仅在完整填充后按 outcome/model 对三个连续暴露做 BH-FDR
+# only after complete filling apply outcome/model apply to three continuous exposures BH-FDR
 out <- weighted; out$q <- NA_real_
 keys <- unique(out[, c("outcome", "model")])
 for (i in seq_len(nrow(keys))) {
@@ -227,7 +227,7 @@ weighted <- out
 write.csv(sel_smd, file.path(out_dir, "blood_selection_smd_2026-09-19.csv"), row.names = FALSE)
 write.csv(weighted, file.path(out_dir, "blood_weighted_sensitivity_2026-09-19.csv"), row.names = FALSE)
 
-# 补充表：只保留暴露行
+# supplementary table: retain exposure rows only
 supp <- bind_rows(
   read.csv(file.path(out_dir, "blood_main_continuous_2026-09-19.csv")) %>% mutate(Table="Main continuous"),
   read.csv(file.path(out_dir, "blood_main_quartile_2026-09-19.csv")) %>% mutate(Table="Main quartile"),
@@ -237,5 +237,5 @@ supp <- bind_rows(
 )
 write.csv(supp, file.path(out_dir, "blood_supplementary_all_models_2026-09-19.csv"), row.names = FALSE)
 
-cat("完成：blood_weighted_sensitivity_2026-09-19.csv\n")
+cat("complete: blood_weighted_sensitivity_2026-09-19.csv\n")
 print(weighted %>% select(outcome, model, exposure, OR, beta, lower, upper, p, q, n))

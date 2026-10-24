@@ -19,7 +19,7 @@ def prepare(config_path):
     if project == repo or project.is_relative_to(repo):
         raise ValueError("Use a work directory outside the repository")
     mappings = {
-        "D:/BaiduSyncdisk/科研/徐中豪": cfg["project_root"],
+        "D:/BaiduSyncdisk/research/Xu_Zhonghao": cfg["project_root"],
         "C:/y03tmp": cfg["scratch_root"],
         "D:/codex_tmp": cfg["external_staging_root"],
         "D:/R/library": cfg["r_library"],
@@ -50,7 +50,7 @@ def prepare(config_path):
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
             target.write_bytes(payload)
-    for base, rels in ((project, ("output", "16.论文修订第三轮/_核查/输出")),
+    for base, rels in ((project, ("output", "16.manuscript_revision_round_three/_audit/output")),
                        (Path(cfg["scratch_root"]), ("tmp", "out", "F34_delivery/TIFF", "F36_delivery/TIFF")),
                        (Path(cfg["external_staging_root"]), ("hrs", "elsa", "share", "ckm_stage"))):
         for rel in rels:

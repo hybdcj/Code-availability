@@ -1,6 +1,6 @@
-# F26 LEGACY: BDSI实现/输入为历史版本；修正分析请运行F26_bdsi_audit.R。
-# 原结果数值保留追溯，不可直接作为原版BDSI的有效比较；Tu限制另见F25。
-# F22a：构造三臂对比数据（CHARLS 2015->2018，本指数 / BDSI / Tu2026）
+# F26 LEGACY: BDSI implementation/input is a historical version; for corrected analyses run F26_bdsi_audit.R.
+# original numerical results retained for traceability, cannot directly serve as original model BDSI valid comparison; Tu see also limitations in F25.
+# F22a: construct three arm comparison data(CHARLS 2015->2018, this index / BDSI / Tu2026)
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 suppressPackageStartupMessages({ library(data.table); library(haven) })
 if (dir.exists("D:/R/library")) .libPaths(c("D:/R/library", .libPaths()))
@@ -60,4 +60,4 @@ d[, lp_tu := B_TU[["age_lt65"]] * as.integer(age15 < 65) + B_TU[["age_ge75"]] * 
       B_TU[["memory"]] * mem15 + B_TU[["orient"]] * orient15]
 
 saveRDS(d, file.path(TMP, "F22_d.rds"))
-cat("三臂数据已保存：n =", nrow(d), "\n")
+cat("three arm data saved: n =", nrow(d), "\n")

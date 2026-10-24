@@ -1,22 +1,22 @@
 # ============================================================================
-# 14_attrition_selection.R —— T07：失访、固定队列选择偏倚与 IPW 敏感性分析
-# 版本：v1.0（2026-09-20）
-# 输入：output/02_五波数据与质控/waves_cognition_2026-09-13.rds
-# 输出：
-#   output/04_纵向队列/attrition_pattern_2026-09-20.csv
-#   output/04_纵向队列/attrition_balance_2026-09-20.csv
-#   output/04_纵向队列/selection_model_2026-09-20.csv
-#   output/04_纵向队列/ipw_diagnostics_2026-09-20.csv
-#   output/04_纵向队列/ipw_longitudinal_models_2026-09-20.csv
-#   output/04_纵向队列/ipw_cumulative_incidence_2026-09-20.csv
-#   output/04_纵向队列/attrition_selection_2026-09-20.md
-#   output/09_图表/FigureS_attrition_selection_2026-09-20.png/.tif
+# 14_attrition_selection.R —— T07: attrition, fixed cohort selection bias and IPW sensitivity analysis
+# version: v1.0(2026-09-20)
+# input: output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds
+# output: 
+#   output/04_longitudinal_cohort/attrition_pattern_2026-09-20.csv
+#   output/04_longitudinal_cohort/attrition_balance_2026-09-20.csv
+#   output/04_longitudinal_cohort/selection_model_2026-09-20.csv
+#   output/04_longitudinal_cohort/ipw_diagnostics_2026-09-20.csv
+#   output/04_longitudinal_cohort/ipw_longitudinal_models_2026-09-20.csv
+#   output/04_longitudinal_cohort/ipw_cumulative_incidence_2026-09-20.csv
+#   output/04_longitudinal_cohort/attrition_selection_2026-09-20.md
+#   output/09_figures_and_tables/FigureS_attrition_selection_2026-09-20.png/.tif
 #
-# 重要口径：
-#   目标人群 = 2011 年年龄 ≥45 岁且基线 ms10（定向+连续减7）可计分者。
-#   满足该条件且五波 ms10 均可计分者为年龄合格固定队列 n=5,672。
-#   旧 longitudinal 分析曾使用 5,884 人，其中含 212 名年龄<45或年龄缺失者；
-#   2026-09-20 已将 T04-T06 统一为年龄合格队列口径。
+# important definition: 
+#   target population = 2011 age in year ≥45 years old and baseline ms10(orientation+serial subtraction of 7)scorable participants.
+#   meets criterion and all five waves ms10 scorable participants constitute age eligible fixed cohort n=5,672.
+#   old longitudinal analysis previously used 5,884 participants, including 212 participants aged<45 or participants with missing age; 
+#   2026-09-20 already changed T04-T06 harmonized to age eligible cohort definition.
 # ============================================================================
 
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
@@ -24,18 +24,18 @@ if (dir.exists("D:/R/library")) .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(survey); library(survival) })
 options(survey.lonely.psu = "adjust")
 
-P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/科研/徐中豪")
-OUT <- file.path(P, "output", "04_纵向队列")
-FIG_DIR <- file.path(P, "output", "09_图表")
+P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/research/Xu_Zhonghao")
+OUT <- file.path(P, "output", "04_longitudinal_cohort")
+FIG_DIR <- file.path(P, "output", "09_figures_and_tables")
 if (!dir.exists(OUT)) dir.create(OUT, recursive = TRUE)
 if (!dir.exists(FIG_DIR)) dir.create(FIG_DIR, recursive = TRUE)
 
-w <- readRDS(file.path(P, "output", "02_五波数据与质控", "waves_cognition_2026-09-13.rds"))
+w <- readRDS(file.path(P, "output", "02_five_wave_data_and_quality_control", "waves_cognition_2026-09-13.rds"))
 w$KEY <- ifelse(is.na(w$IDn), w$ID, w$IDn)
 w$ms10 <- as.numeric(w$orient) + as.numeric(w$ser7)
 stopifnot(!anyDuplicated(w[, c("KEY", "year")]))
 
-# 五波认知可计分次数。
+# number of waves with scorable cognition.
 nwaves <- w %>% filter(!is.na(ms10)) %>% count(KEY, name = "n_waves")
 b2011 <- w %>% filter(year == 2011)
 eligible_all <- b2011 %>% filter(!is.na(age), age >= 45)
@@ -46,7 +46,7 @@ eligible_all <- eligible_all %>% left_join(nwaves, by = "KEY") %>% mutate(fixed 
 stopifnot(nrow(eligible_all) == 16831)
 stopifnot(nrow(eligible_ms10) == 13710, sum(eligible_ms10$fixed) == 5672)
 
-# ------------------------- 1. 失访模式与各波保留率 -------------------------
+# ------------------------- 1. attrition patterns and retention by wave -------------------------
 pattern_tab <- eligible_ms10 %>% count(n_waves, name = "n") %>%
   mutate(percent = 100 * n / sum(n)) %>%
   arrange(n_waves)
@@ -60,11 +60,11 @@ retention <- w %>% filter(KEY %in% ids) %>%
 write.csv(pattern_tab, file.path(OUT, "attrition_pattern_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(retention, file.path(OUT, "attrition_retention_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# ------------------------- 2. 固定队列与未纳入者基线比较 -------------------------
+# ------------------------- 2. baseline comparison of included and excluded participants -------------------------
 balance_vars <- c("age", "female", "rural", "ms10", "cesd10", "adl", "sleep_h", "pain_any", "hibp", "diab")
-balance_labels <- c(age = "年龄（岁）", female = "女性", rural = "农村", ms10 = "基线 ms10",
-                    cesd10 = "CES-D-10 得分", adl = "ADL 受限", sleep_h = "睡眠时长（小时）",
-                    pain_any = "疼痛", hibp = "高血压", diab = "糖尿病")
+balance_labels <- c(age = "age(years old)", female = "female", rural = "rural", ms10 = "baseline ms10",
+                    cesd10 = "CES-D-10 score", adl = "ADL limited", sleep_h = "sleep duration(hours)",
+                    pain_any = "pain", hibp = "hypertension", diab = "diabetes")
 
 smd_cont <- function(x1, x2) {
   x1 <- x1[!is.na(x1)]; x2 <- x2[!is.na(x2)]
@@ -103,7 +103,7 @@ balance <- do.call(rbind, lapply(balance_vars, function(v) {
 }))
 write.csv(balance, file.path(OUT, "attrition_balance_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# ------------------------- 3. 选择概率模型 -------------------------
+# ------------------------- 3. selection probability model -------------------------
 pred_vars <- c("age", "female", "edu_group", "rural", "ms10", "cesd10", "adl", "sleep_h", "pain_any", "hibp", "diab")
 ps_data <- eligible_ms10 %>% filter(complete.cases(.[, pred_vars])) %>% mutate(fixed_int = as.integer(fixed))
 ps_formula <- as.formula(paste("fixed_int ~", paste(c("age", "female", "edu_group", "rural", "ms10", "cesd10", "adl", "sleep_h", "pain_any", "hibp", "diab"), collapse = " + ")))
@@ -123,7 +123,7 @@ selection_tab <- data.frame(
 )
 write.csv(selection_tab, file.path(OUT, "selection_model_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# IPW 诊断；有效样本量常用 sum(w)^2 / sum(w^2)。
+# IPW diagnostics; conventional effective sample size sum(w)^2 / sum(w^2).
 ipw_weight <- ps_fixed$ipw_stab
 ipw_diag <- data.frame(
   selection_model_n = nrow(ps_data), fixed_n = nrow(ps_fixed), selection_fraction = mean(ps_data$fixed_int),
@@ -134,7 +134,7 @@ ipw_diag <- data.frame(
 )
 write.csv(ipw_diag, file.path(OUT, "ipw_diagnostics_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# 用 IPW 重新加权固定队列，与基线完整病例池比较。
+# using IPW reweight fixed cohort, compare against baseline complete case pool.
 target <- ps_data %>% filter(fixed_int == 0 | fixed_int == 1)
 balance_ipw <- do.call(rbind, lapply(balance_vars, function(v) {
   # target mean is the full eligible complete-case pool; IPW reweights fixed cases to it.
@@ -155,18 +155,18 @@ balance_ipw$smd_abs_before <- abs(balance_ipw$smd_before)
 balance_ipw$smd_abs_after <- abs(balance_ipw$smd_after)
 write.csv(balance_ipw, file.path(OUT, "attrition_balance_ipw_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# ------------------------- 4. 构建年龄合格固定队列结局数据 -------------------------
+# ------------------------- 4. construct outcomes for age eligible fixed cohort -------------------------
 fixed_ids <- eligible_ms10$KEY[eligible_ms10$fixed == 1]
-# 连续认知分数矩阵。
+# continuous cognition score matrix.
 score_wide <- w %>% filter(KEY %in% fixed_ids) %>%
   select(KEY, year, ms10) %>%
   pivot_wider(names_from = year, values_from = ms10, names_prefix = "ms") %>%
   arrange(KEY)
-# 2011 年教育分层固定切点。
+# 2011 year education specific fixed cutoff.
 base11 <- w %>% filter(KEY %in% fixed_ids, year == 2011) %>% select(KEY, edu_group)
 thr <- w %>% filter(KEY %in% fixed_ids, year == 2011) %>%
   group_by(edu_group) %>% summarise(anchor = mean(ms10, na.rm = TRUE) - sd(ms10, na.rm = TRUE), .groups = "drop")
-# 受损状态矩阵。
+# impairment status matrix.
 status_wide <- w %>% filter(KEY %in% fixed_ids) %>%
   select(KEY, year, ms10, edu_group) %>%
   left_join(thr, by = "edu_group") %>%
@@ -176,7 +176,7 @@ status_wide <- w %>% filter(KEY %in% fixed_ids) %>%
   arrange(KEY)
 wide <- score_wide %>% left_join(status_wide, by = "KEY")
 
-# 基线暴露和十年认知变化。
+# baseline exposures and ten year cognitive change.
 base_cov <- ps_data %>% select(KEY, ipw_stab, p_hat, fixed_int)
 fixed_base <- w %>% filter(KEY %in% fixed_ids, year == 2011) %>%
   transmute(KEY, age, female, edu_group, rural,
@@ -204,13 +204,13 @@ fixed_base <- fixed_base %>% left_join(base_cov, by = "KEY") %>% left_join(
   event = as.integer(!is.na(first_index)),
   ipw_combined = weight * ipw_stab
 )
-# 在固定队列内标准化 IPW 组合权重；回归中的常数缩放不改变估计。
+# standardize within fixed cohort IPW combined weights; constant weight scaling does not change regression estimates.
 fixed_base$ipw_combined <- fixed_base$ipw_combined / mean(fixed_base$ipw_combined, na.rm = TRUE)
 
-# ------------------------- 5. IPW 纵向模型 -------------------------
+# ------------------------- 5. IPW longitudinal model -------------------------
 exposures <- c("dep", "adl", "sleep_h", "pain", "pa", "hibp", "diab")
-labels <- c(dep = "抑郁（CES-D-10 ≥10）", adl = "ADL 受限", sleep_h = "睡眠时长（每 1 小时）",
-            pain = "疼痛", pa = "规律体力活动", hibp = "高血压", diab = "糖尿病")
+labels <- c(dep = "depression(CES-D-10 ≥10)", adl = "ADL limited", sleep_h = "sleep duration(per 1 hours)",
+            pain = "pain", pa = "regular physical activity", hibp = "hypertension", diab = "diabetes")
 extract_est <- function(fit, term, type = c("ratio", "beta")) {
   type <- match.arg(type); b <- coef(fit)[term]; se <- sqrt(vcov(fit)[term, term])
   if (type == "ratio") c(exp(b), exp(b - 1.96 * se), exp(b + 1.96 * se))
@@ -235,13 +235,13 @@ for (e in exposures) {
   u2 <- coxph(f2, data = d_inc)
   u3 <- lm(f3, data = d_change)
   specs <- list(
-    list(model = "endpoint_2020_logistic", label = "2020 终点评定", measure = "OR",
+    list(model = "endpoint_2020_logistic", label = "2020 endpoint assessment", measure = "OR",
          w = extract_est(wl, e, "ratio"), u = extract_est(u1, e, "ratio"),
          n = nrow(d_inc), events = sum(d_inc$endpoint_2020), communities = length(unique(d_inc$communityID))),
-    list(model = "first_event_cox", label = "首次受损 Cox", measure = "HR",
+    list(model = "first_event_cox", label = "first impairment Cox", measure = "HR",
          w = extract_est(wc, e, "ratio"), u = extract_est(u2, e, "ratio"),
          n = nrow(d_inc), events = sum(d_inc$event), communities = length(unique(d_inc$communityID))),
-    list(model = "ten_year_change_lm", label = "十年变化（固定队列完整病例）", measure = "beta",
+    list(model = "ten_year_change_lm", label = "ten year change(fixed cohort complete cases)", measure = "beta",
          w = extract_est(wch, e, "beta"), u = extract_est(u3, e, "beta"),
          n = nrow(d_change), events = nrow(d_change), communities = length(unique(d_change$communityID)))
   )
@@ -258,7 +258,7 @@ for (e in exposures) {
 ipw_models <- bind_rows(ipw_rows)
 write.csv(ipw_models, file.path(OUT, "ipw_longitudinal_models_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# ------------------------- 6. IPW 累积发病 -------------------------
+# ------------------------- 6. IPW cumulative incidence -------------------------
 time_points <- c(0,2,4,7,9); first_limits <- c(0L,1L,2L,3L,4L); conf_limits <- c(0L,1L,2L,3L,3L)
 ipw_inc <- list()
 for (k in seq_along(time_points)) {
@@ -277,7 +277,7 @@ for (k in seq_along(time_points)) {
 ipw_inc <- bind_rows(ipw_inc)
 write.csv(ipw_inc, file.path(OUT, "ipw_cumulative_incidence_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# ------------------------- 7. 图表：保留率 + SMD + IPW 森林图 -------------------------
+# ------------------------- 7. figures and tables: retention rate + SMD + IPW forest plot -------------------------
 draw_attrition_figure <- function() {
   par(mfrow = c(1, 3), mar = c(5, 7, 3, 1), family = "sans")
   # Retention.
@@ -311,59 +311,59 @@ png(file.path(FIG_DIR, "FigureS_attrition_selection_2026-09-20.png"), width = 15
 draw_attrition_figure(); dev.off()
 tryCatch({ tiff(file.path(FIG_DIR, "FigureS_attrition_selection_2026-09-20.tif"), width = 15, height = 6, units = "in", res = 600, compression = "lzw"); draw_attrition_figure(); dev.off() }, error = function(e) { if (length(dev.list())) dev.off() })
 
-# ------------------------- 8. 报告 -------------------------
+# ------------------------- 8. report -------------------------
 fmt_pct <- function(x) sprintf("%.1f%%", 100*x)
 report <- c(
-  "# T07：失访、固定队列选择偏倚与 IPW 敏感性分析（2026-09-20）",
+  "# T07: attrition, fixed cohort selection bias and IPW sensitivity analysis(2026-09-20)",
   "",
-  "> 目标人群：2011 年年龄 ≥45 岁且基线 ms10 可计分者。",
-  sprintf("> 基线可分析者 n=%d；年龄合格固定队列 n=%d；旧 5,884 人队列含 212 名年龄<45或年龄缺失者。", nrow(eligible_ms10), nrow(fixed_base)),
+  "> target population: 2011 age in year ≥45 years old and baseline ms10 scorable participants.",
+  sprintf("> analyzable at baseline n=%d; fixed cohort meeting age eligibility n=%d; old 5,884 participant cohort includes 212 participants aged<45 or participants with missing age.", nrow(eligible_ms10), nrow(fixed_base)),
   "",
-  "## 一、失访模式",
+  "## one, attrition patterns",
   "",
-  "| 五波中可计分波数 | 人数 | 比例 |",
+  "| number of scorable waves out of five | participant count | proportion |",
   "|---:|---:|---:|",
   paste0("| ", pattern_tab[[1]], " | ", pattern_tab[[2]], " | ", sprintf("%.1f%%", pattern_tab[[3]]), " |"),
   "",
-  "| 年份 | 实际访问人数 | ms10 可计分 | 相对 2011 保留 |",
+  "| year | actual interviewed count | ms10 scorable | relative to 2011 retain |",
   "|---:|---:|---:|---:|",
   paste0("| ", retention$year, " | ", retention$interviewed_n, " | ", retention$ms10_n, " | ", fmt_pct(retention$retained_percent/100), " |"),
   "",
-  "## 二、固定队列与未纳入者基线差异",
+  "## two, baseline differences between included and excluded participants",
   "",
-  "| 指标 | 固定队列 | 未纳入 | SMD |",
+  "| metrics | fixed cohort | excluded | SMD |",
   "|---|---:|---:|---:|",
   paste0("| ", balance$label, " | ", sprintf("%.2f", balance$fixed_mean), " | ", sprintf("%.2f", balance$nonfixed_mean), " | ", sprintf("%.2f", balance$smd), " |"),
   "",
-  "> SMD 绝对值越接近 0 越均衡；|SMD|≥0.10 提示有意义的基线差异。",
+  "> SMD absolute value closer to 0 indicates better balance; |SMD|≥0.10 indicates meaningful baseline differences.",
   "",
-  "## 三、选择概率与 IPW",
+  "## three, selection probability and IPW",
   "",
-  sprintf("- 选择模型完整病例：%d 人；其中固定队列 %d 人。", ipw_diag$selection_model_n, ipw_diag$fixed_n),
-  sprintf("- 截断后的预测选择概率：中位数 %.2f，范围 %.2f–%.2f。", ipw_diag$p_median, ipw_diag$p_min, ipw_diag$p_max),
-  sprintf("- 稳定化 IPW：中位数 %.2f，最大 %.2f，有效样本量 %.0f。", ipw_diag$ipw_median, ipw_diag$ipw_max, ipw_diag$effective_n),
+  sprintf("- selection model complete cases: %d participants; of whom in fixed cohort %d participants.", ipw_diag$selection_model_n, ipw_diag$fixed_n),
+  sprintf("- truncated predicted selection probability: median %.2f, range %.2f–%.2f.", ipw_diag$p_median, ipw_diag$p_min, ipw_diag$p_max),
+  sprintf("- stabilized IPW: median %.2f, maximum %.2f, effective sample size %.0f.", ipw_diag$ipw_median, ipw_diag$ipw_max, ipw_diag$effective_n),
   "",
-  "| 指标 | 固定队列未加权 | 全池未加权 | IPW 重加权 | SMD 前 | SMD 后 |",
+  "| metrics | unweighted fixed cohort | unweighted full pool | IPW reweighted | SMD before | SMD after |",
   "|---|---:|---:|---:|---:|---:|",
   paste0("| ", balance_ipw$label, " | ", sprintf("%.2f", balance_ipw$fixed_unweighted), " | ", sprintf("%.2f", balance_ipw$pool_unweighted), " | ", sprintf("%.2f", balance_ipw$fixed_ipw_weighted), " | ", sprintf("%.2f", balance_ipw$smd_before), " | ", sprintf("%.2f", balance_ipw$smd_after), " |"),
   "",
-  "## 四、IPW 纵向模型",
+  "## four, IPW longitudinal model",
   "",
-  "| 模型 | 暴露 | n | IPW 估计 | 未加权 |",
+  "| model | exposure | n | IPW estimate | unweighted |",
   "|---|---|---:|---:|---:|",
   paste0("| ", ipw_models$model_label, " | ", ipw_models$exposure_label, " | ", ipw_models$n, " | ",
          sprintf("%.2f (%.2f–%.2f)", ipw_models$ipw_est, ipw_models$ipw_lower, ipw_models$ipw_upper), " | ",
          sprintf("%.2f (%.2f–%.2f)", ipw_models$unweighted_est, ipw_models$unweighted_lower, ipw_models$unweighted_upper), " |"),
   "",
-  "## 五、结论",
+  "## five, conclusion",
   "",
-  sprintf("- 年龄合格固定队列占基线可分析者 %.1f%%。", 100 * nrow(fixed_base) / nrow(eligible_ms10)),
-  sprintf("- IPW 后 SMD 平均绝对值由 %.2f 变为 %.2f。", mean(abs(balance_ipw$smd_before)), mean(abs(balance_ipw$smd_after))),
-  "- 固定队列明显更年轻、更健康、基线认知更高，选择偏倚真实存在。",
-  "- IPW 只能校正可观测基线因素，不能校正未测量选择、死亡和认知测量缺失。",
-  "- T04–T06 已按同一年龄合格口径重跑；本报告中的 5,672 人与当前纵向主分析一致。",
+  sprintf("- age eligible fixed cohort as fraction of analyzable baseline participants %.1f%%.", 100 * nrow(fixed_base) / nrow(eligible_ms10)),
+  sprintf("- IPW after SMD mean absolute value from %.2f changes to %.2f.", mean(abs(balance_ipw$smd_before)), mean(abs(balance_ipw$smd_after))),
+  "- fixed cohort is substantially younger, healthier, higher baseline cognition, selection bias is present.",
+  "- IPW adjusts observed baseline factors only, cannot adjust unmeasured selection, death and missing cognitive measurement.",
+  "- T04–T06 rerun with identical age eligible definition; in this report 5,672 participants consistent with current longitudinal primary analysis.",
   "",
-  "## 六、输出文件",
+  "## six, output file",
   "",
   "- `attrition_pattern_2026-09-20.csv`",
   "- `attrition_retention_2026-09-20.csv`",
@@ -373,14 +373,14 @@ report <- c(
   "- `ipw_diagnostics_2026-09-20.csv`",
   "- `ipw_longitudinal_models_2026-09-20.csv`",
   "- `ipw_cumulative_incidence_2026-09-20.csv`",
-  "- `output/09_图表/FigureS_attrition_selection_2026-09-20.png/.tif`",
+  "- `output/09_figures_and_tables/FigureS_attrition_selection_2026-09-20.png/.tif`",
   "",
-  sprintf("*生成时间：%s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+  sprintf("*generation time: %s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
 )
 writeLines(report, file.path(OUT, "attrition_selection_2026-09-20.md"), useBytes = TRUE)
 
-cat("\n========== T07 失访与选择偏倚分析完成 ==========\n")
-cat("基线≥45岁且ms10可分析：", nrow(eligible_ms10), "；年龄合格固定队列：", nrow(fixed_base), "\n", sep = "")
-cat("选择模型完整病例：", nrow(ps_data), "；固定队列：", nrow(ps_fixed), "\n", sep = "")
-cat("IPW平均|SMD|：", sprintf("%.2f -> %.2f", mean(abs(balance_ipw$smd_before)), mean(abs(balance_ipw$smd_after))), "\n", sep = "")
-cat("主图：", file.path(FIG_DIR, "FigureS_attrition_selection_2026-09-20.png"), "\n", sep = "")
+cat("\n========== T07 attrition and selection bias analysis complete ==========\n")
+cat("baseline≥45 years old and ms10 analyzable: ", nrow(eligible_ms10), "; fixed cohort meeting age eligibility: ", nrow(fixed_base), "\n", sep = "")
+cat("selection model complete cases: ", nrow(ps_data), "; fixed cohort: ", nrow(ps_fixed), "\n", sep = "")
+cat("IPW mean|SMD|: ", sprintf("%.2f -> %.2f", mean(abs(balance_ipw$smd_before)), mean(abs(balance_ipw$smd_after))), "\n", sep = "")
+cat("main figure: ", file.path(FIG_DIR, "FigureS_attrition_selection_2026-09-20.png"), "\n", sep = "")

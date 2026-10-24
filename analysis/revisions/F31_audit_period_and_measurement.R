@@ -1,10 +1,10 @@
 invisible(Sys.setlocale('LC_CTYPE','Chinese_China.utf8'))
 .libPaths(c('D:/R/library',.libPaths()))
 suppressPackageStartupMessages({library(data.table);library(pROC);library(splines)})
-P <- 'D:/BaiduSyncdisk/科研/徐中豪'
-ROOT <- file.path(P,'16.论文修订第三轮')
-OUT <- file.path(ROOT,'_核查/输出')
-src <- file.path(ROOT,'_核查/脚本/F04_incremental.R')
+P <- 'D:/BaiduSyncdisk/research/Xu_Zhonghao'
+ROOT <- file.path(P,'16.manuscript_revision_round_three')
+OUT <- file.path(ROOT,'_audit/output')
+src <- file.path(ROOT,'_audit/scripts/F04_incremental.R')
 # Evaluate only the existing data preparation and formula definitions.
 # No bootstrap, plot, report-writing, or original output code is executed.
 e <- new.env(parent=globalenv())
@@ -14,7 +14,7 @@ for(x in parsed) if(is.call(x) && identical(x[[1]],as.name('<-')) &&
  is.symbol(x[[2]]) && as.character(x[[2]]) %in% c('BETA_OLD','LV')) eval(x,e)
 lines <- readLines(src,encoding='UTF-8',warn=FALSE)
 start <- grep('^w <- as.data.table',lines)
-end <- grep('^## ---------------- 表观结果',lines)-1L
+end <- grep('^## ---------------- apparent results',lines)-1L
 stopifnot(length(start)==1,length(end)==1)
 eval(parse(text=lines[start:end]),e)
 main <- e$m;risk <- e$d_all;inc <- e$d
@@ -48,30 +48,30 @@ add <- function(task,analysis,sample,outcome,model,y,p,d) {
  v<-met(y,p)
  out[[length(out)+1L]] <<- cbind(data.frame(task,analysis,sample,outcome,model,
    baseline_year=2018,outcome_year=2020,development_id_overlap=sum(as.character(d$ID)%in%dev_ids),
-   role='同队列后续窗口事后探索；非独立外部验证'),as.data.frame(as.list(v)))
+   role='post hoc later window exploration in same cohort; not independent external validation'),as.data.frame(as.list(v)))
  v
 }
 f03old<-fread(file.path(OUT,'F03_A_temporal_validation.csv'),encoding='UTF-8')
 for(k in c(3,6)) {
  d<-copy(risk);d$event<-as.integer(d$mem20<=k);p<-prediction(d);lp<-qlogis(p)
  sc<-if(k==3) 'D1' else 'D2'
- v<-add('F03',sc,'2018记忆>3且年龄≥45及四变量完整',paste0('2020记忆≤',k),
-  '冻结连续模型',d$event,p,d)
+ v<-add('F03',sc,'2018 memory>3 and age≥45 and complete four variable data',paste0('2020 memory≤',k),
+  'frozen continuous model',d$event,p,d)
  row<-if(k==3) 1L else 2L
- stopifnot(round(v['auc'],3)==f03old$AUC[row],round(v['joint_intercept'],3)==f03old$校准截距[row])
+ stopifnot(round(v['auc'],3)==f03old$AUC[row],round(v['joint_intercept'],3)==f03old$calibration_intercept[row])
  f<-glm(event~age18+edu_group+dep+adl18,data=d,family=binomial())
- add('F03',sc,'2018记忆>3且年龄≥45及四变量完整',paste0('2020记忆≤',k),'四变量重拟合（表观）',d$event,predict(f,type='response'),d)
+ add('F03',sc,'2018 memory>3 and age≥45 and complete four variable data',paste0('2020 memory≤',k),'four variable refit(apparent)',d$event,predict(f,type='response'),d)
  fi<-glm(event~offset(lp),data=d,family=binomial())
- add('F03',sc,'2018记忆>3且年龄≥45及四变量完整',paste0('2020记忆≤',k),'仅截距重校准（同样本评价）',d$event,
+ add('F03',sc,'2018 memory>3 and age≥45 and complete four variable data',paste0('2020 memory≤',k),'intercept only recalibration(same sample evaluation)',d$event,
   plogis(lp+coef(fi)[1]),d)
 }
 apparent<-fread(file.path(OUT,'F04_apparent.csv'),encoding='UTF-8')
 for(nm in names(e$FORMS)) {
  f<-glm(e$FORMS[[nm]],data=inc,family=binomial());p<-predict(f,type='response')
- v<-add('F04',nm,'候选变量共同完整；2018记忆>3','2020记忆≤3',
-  paste0('重拟合（表观）：',e$LBL[[nm]]),inc$event,p,inc)
- row<-match(nm,apparent$模型)
- stopifnot(round(v['auc'],4)==apparent$表观AUC[row],round(v['brier'],4)==apparent$Brier[row])
+ v<-add('F04',nm,'complete common candidate variable sample; 2018 memory>3','2020 memory≤3',
+  paste0('refit(apparent): ',e$LBL[[nm]]),inc$event,p,inc)
+ row<-match(nm,apparent$model)
+ stopifnot(round(v['auc'],4)==apparent$apparent_AUC[row],round(v['brier'],4)==apparent$Brier[row])
 }
 # F05's standardization uses all 12,571 paired observations, not the model subset.
 mu18<-mean(paired$mem18);mu20<-mean(paired$mem20);sd18<-sd(paired$mem18);sd20<-sd(paired$mem20)
@@ -86,30 +86,30 @@ targets<-list(list('O1',TRUE,function(x)x$mem20<=3),list('O2',TRUE,function(x)x$
 for(i in seq_along(targets)) {
  t<-targets[[i]];dd<-if(t[[2]]) copy(d[mem18>3]) else copy(d)
  dd$event<-as.integer(t[[3]](dd));p<-prediction(dd)
- sc<-paste(t[[1]],if(t[[2]]) '风险集' else '全部完整病例')
- v<-add('F05',sc,if(t[[2]]) '2018记忆>3' else '≥45岁且四变量完整',f05old$口径[i],
-   '冻结连续模型',dd$event,p,dd)
+ sc<-paste(t[[1]],if(t[[2]]) 'risk set' else 'all complete cases')
+ v<-add('F05',sc,if(t[[2]]) '2018 memory>3' else '≥45 years old and complete four variable data',f05old$definition[i],
+   'frozen continuous model',dd$event,p,dd)
  f<-glm(event~age18+edu_group+dep+adl18,data=dd,family=binomial())
- v2<-add('F05',sc,if(t[[2]]) '2018记忆>3' else '≥45岁且四变量完整',f05old$口径[i],
-   '四变量重拟合（表观）',dd$event,predict(f,type='response'),dd)
- stopifnot(nrow(dd)==f05old$n[i],sum(dd$event)==f05old$事件[i],
-  round(v['auc'],4)==f05old$冻结AUC[i],round(v2['auc'],4)==f05old$重估AUC[i])
+ v2<-add('F05',sc,if(t[[2]]) '2018 memory>3' else '≥45 years old and complete four variable data',f05old$definition[i],
+   'four variable refit(apparent)',dd$event,predict(f,type='response'),dd)
+ stopifnot(nrow(dd)==f05old$n[i],sum(dd$event)==f05old$events[i],
+  round(v['auc'],4)==f05old$frozen_AUC[i],round(v2['auc'],4)==f05old$reestimate_AUC[i])
 }
 registry<-rbindlist(out,fill=TRUE)
-fwrite(registry,file.path(OUT,'F31_可用性能数字底表.csv'),bom=TRUE)
-flow<-data.frame(sample=c('两波记忆可测（尚未限制年龄及预测因子完整）',
- '年龄≥45且四变量完整','基线记忆>3风险集','候选变量共同完整风险集'),
+fwrite(registry,file.path(OUT,'F31_available_performance_source_table.csv'),bom=TRUE)
+flow<-data.frame(sample=c('memory measurable at both waves(age and predictor completeness restrictions not yet applied)',
+ 'age≥45 and four variables complete','baseline memory>3 risk set','common complete candidate risk set'),
  n=c(nrow(paired),nrow(main),nrow(risk),nrow(inc)),
  development_id_overlap=c(sum(as.character(paired$ID)%in%dev_ids),sum(as.character(main$ID)%in%dev_ids),
  sum(as.character(risk$ID)%in%dev_ids),sum(as.character(inc$ID)%in%dev_ids)))
-write.csv(flow,file.path(OUT,'F31_样本流程与重叠.csv'),row.names=FALSE,fileEncoding='UTF-8')
+write.csv(flow,file.path(OUT,'F31_sample_flow_and_overlap.csv'),row.names=FALSE,fileEncoding='UTF-8')
 paired[,change:=mem20-mem18]
 desc<-data.frame(n=nrow(paired),mean2018=mu18,sd2018=sd18,mean2020=mu20,sd2020=sd20,
  mean_change=mean(paired$change),correlation=cor(paired$mem18,paired$mem20),
  baseline_low=sum(paired$mem18<=3),both_low=sum(paired$mem18<=3&paired$mem20<=3),
  incident_events=sum(paired$mem18>3&paired$mem20<=3),
- cut_anchor_population='12571配对样本（F05）；12331完整病例（F03/F04），均导出≤3及≤6')
-write.csv(desc,file.path(OUT,'F31_配对分布描述.csv'),row.names=FALSE,fileEncoding='UTF-8')
+ cut_anchor_population='12571 paired sample(F05); 12331 complete cases(F03/F04), all exported≤3 and≤6')
+write.csv(desc,file.path(OUT,'F31_paired_distribution_description.csv'),row.names=FALSE,fileEncoding='UTF-8')
 # Audit the bootstrap estimand from existing code, without repeating bootstrap.
 stopifnot(any(grepl('optimism <- app[nms] - colMeans(optAUC',lines,fixed=TRUE)),
  any(grepl('dA <- sweep(bootAUC',lines,fixed=TRUE)))
@@ -120,5 +120,5 @@ checks<-c('F03 sample sizes, thresholds, frozen AUC and joint calibration interc
  'No bootstrap rerun; F04 correction formula is simple-bootstrap evaluation, not Harrell optimism subtraction',
  capture.output(print(flow)),capture.output(print(registry[task=='F03'],digits=10)),
  capture.output(print(desc,digits=10)),capture.output(sessionInfo()))
-writeLines(checks,file.path(OUT,'F31_核验日志.txt'),useBytes=TRUE)
+writeLines(checks,file.path(OUT,'F31_verification_log.txt'),useBytes=TRUE)
 cat(paste(head(checks,5),collapse='\n'),'\n');print(flow);print(registry[task=='F03'],digits=8)

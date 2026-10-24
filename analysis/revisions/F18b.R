@@ -1,7 +1,7 @@
-# F32（2026-10-16）：以下保留旧共同完整样本的计算以便追溯；CHARLS整数评分自身样本已改用同目录 F32_全人群入组与分母修正.R。不要仅删除lp限制后直接运行旧脚本，因为下游连续模型、分母和表头也需分别处理。
+# F32(2026-10-16): Retain the historical common complete sample calculation below for traceability; CHARLS The integer score now uses its own sample from the same directory F32_correct_population_eligibility_and_denominators.R.Do not merely remove the lp restriction and run the old script, because the downstream continuous model, denominators and headings require separate handling.
 # ============================================================================
-# F18b：补描述"阶梯第 ③ 级比第 ② 级新增的 3,457 人"
-# 口径：主稿阈值 <=4，CHARLS 2011 -> 2015
+# F18b: add description"step number ③ level compared with ② newly included at level 3,457 participants"
+# definition: main manuscript threshold <=4, CHARLS 2011 -> 2015
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 suppressPackageStartupMessages({ library(data.table) })
@@ -34,23 +34,23 @@ d <- d[!is.na(score) & !is.na(lp) & !is.na(age0) & age0 >= 45 & !is.na(mem1)]
 d[, event := as.integer(mem1 <= K)]
 
 grp <- function(x, lab) data.table(
-  组 = lab, n = nrow(x),
-  平均年龄 = round(mean(x$age0), 1),
-  未上学比例 = round(100 * mean(x$edu0 == LV[1]), 1),
-  基线记忆分可测 = sum(!is.na(x$mem0)),
-  基线记忆分均值 = round(mean(x$mem0, na.rm = TRUE), 2),
-  事件 = sum(x$event), 事件率 = round(100 * mean(x$event), 1),
-  评分均值 = round(mean(x$score), 2))
+  groups = lab, n = nrow(x),
+  mean_age = round(mean(x$age0), 1),
+  fraction_with_no_schooling = round(100 * mean(x$edu0 == LV[1]), 1),
+  baseline_memory_measurable = sum(!is.na(x$mem0)),
+  mean_baseline_memory = round(mean(x$mem0, na.rm = TRUE), 2),
+  events = sum(x$event), event_rate = round(100 * mean(x$event), 1),
+  mean_risk_score = round(mean(x$score), 2))
 
 T <- rbindlist(list(
-  grp(d[!is.na(mem0) & mem0 > K], "① 宽样本（基线>4，R02 第②级）"),
-  grp(d[!is.na(mem0) & mem0 <= K], "② 基线已低分（新增）"),
-  grp(d[is.na(mem0)], "③ 基线记忆不可测（新增）"),
-  grp(d, "合计（全人口，第③级）")))
-say("按主稿阈值 <=4、CHARLS 2011->2015。")
-say("第③级 11,753 人 − 第②级 8,296 人 = 新增 ", nrow(d) - nrow(d[!is.na(mem0) & mem0 > K]), " 人")
-say("校验：② + ③ = ", nrow(d[!is.na(mem0) & mem0 <= K]) + nrow(d[is.na(mem0)]))
+  grp(d[!is.na(mem0) & mem0 > K], "① broader sample(baseline>4, R02 number ② level)"),
+  grp(d[!is.na(mem0) & mem0 <= K], "② baseline low score(newly added)"),
+  grp(d[is.na(mem0)], "③ baseline memory not measurable(newly added)"),
+  grp(d, "total(full population, number ③ level)")))
+say("using main manuscript threshold <=4, CHARLS 2011->2015.")
+say("number ③ level 11,753 participants − number ② level 8,296 participants = newly added ", nrow(d) - nrow(d[!is.na(mem0) & mem0 > K]), " participants")
+say("verification: ② + ③ = ", nrow(d[!is.na(mem0) & mem0 <= K]) + nrow(d[is.na(mem0)]))
 pt(T)
 fwrite(T, file.path(OUT, "F18b_newcomers.csv"), bom = TRUE)
 close(con)
-cat("\n完成\n")
+cat("\n complete\n")

@@ -1,8 +1,8 @@
 # ============================================================================
-# F05：结局的测量问题——错分有多少、换口径后模型表现如何、模型究竟在预测什么
-# 数据：waves_cognition（2018 与 2020 记忆分，即时试次1 + 延迟，0–20）
-# 输出：C:/y03tmp/out/F05_report.txt、F05_*.csv、F05_*.png
-# 说明：全部为事后分析；口径预先指定，不做事后挑选
+# F05: outcome measurement issues——extent of misclassification, performance after definition changes, what the model actually predicts
+# data: waves_cognition(2018 and 2020 memory score, immediate recall trial 1 + delayed, 0–20)
+# output: C:/y03tmp/out/F05_report.txt, F05_*.csv, F05_*.png
+# notes: all post hoc analyses; definitions prespecified, no post hoc selection
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 suppressPackageStartupMessages({ library(data.table); library(pROC) })
@@ -17,7 +17,7 @@ BETA_OLD <- c("(Intercept)" = -4.19524508778947, age = 0.0492039250378111,
               dep = 0.412166484954086, adl = -0.0110119344848014)
 LV <- c("Less than primary", "Primary school", "Middle school", "High school or above")
 
-## ---------------- 数据 ----------------
+## ---------------- data ----------------
 w <- as.data.table(readRDS(file.path(TMP, "waves_cognition.rds")))
 a18 <- w[year == 2018, .(ID = IDn, mem18 = as.numeric(imrc) + as.numeric(dlrc),
                          age18 = as.numeric(age), edu18 = edu_group,
@@ -26,30 +26,30 @@ a18 <- w[year == 2018, .(ID = IDn, mem18 = as.numeric(imrc) + as.numeric(dlrc),
 a20 <- w[year == 2020, .(ID = IDn, mem20 = as.numeric(imrc) + as.numeric(dlrc))]
 m <- merge(a18, a20, by = "ID")
 pt_paired <- m[!is.na(mem18) & !is.na(mem20)]
-say("配对样本 n = ", nrow(pt_paired))
+say("paired sample n = ", nrow(pt_paired))
 
-## 波内标准化（用配对样本的波内均值/SD）
+## within wave standardization(use paired sample within wave mean/SD)
 mu18 <- mean(pt_paired$mem18); sd18 <- sd(pt_paired$mem18)
 mu20 <- mean(pt_paired$mem20); sd20 <- sd(pt_paired$mem20)
 pt_paired[, z18 := (mem18 - mu18)/sd18][, z20 := (mem20 - mu20)/sd20]
 pt_paired[, dz := z20 - z18][, draw := mem20 - mem18]
-say("2018：mean=", round(mu18, 2), " SD=", round(sd18, 2),
-    "｜2020：mean=", round(mu20, 2), " SD=", round(sd20, 2))
-say("变化量（0–20 分）：mean=", round(mean(pt_paired$draw), 2),
+say("2018: mean=", round(mu18, 2), " SD=", round(sd18, 2),
+    "｜2020: mean=", round(mu20, 2), " SD=", round(sd20, 2))
+say("change score(0–20 points): mean=", round(mean(pt_paired$draw), 2),
     " SD=", round(sd(pt_paired$draw), 2))
-say("标准化变化 dz：mean=", round(mean(pt_paired$dz), 3), " SD=", round(sd(pt_paired$dz), 3))
+say("standardized change dz: mean=", round(mean(pt_paired$dz), 3), " SD=", round(sd(pt_paired$dz), 3))
 
-## ---------------- 1. 两波相关、信度与最小可测变化 ----------------
-say("\n========== 1. 测量信度与最小可测变化 ==========")
+## ---------------- 1. correlation between waves, reliability and minimal detectable change ----------------
+say("\n========== 1. measurement reliability and minimal detectable change ==========")
 r <- cor(pt_paired$mem18, pt_paired$mem20)
 sem <- sd18 * sqrt(1 - r)
 mdc <- 1.96 * sqrt(2) * sem
-say("两波相关 r = ", round(r, 3), "（注意：2018/2020 换过词表，此值会被压低，")
-say("      按 ρ≈r 处理即高估测量误差，属保守方向）")
-say("估计 SEM = ", round(sem, 2), " 分；最小可测变化 MDC95 = ", round(mdc, 2), " 分")
+say("correlation between waves r = ", round(r, 3), "(note: 2018/2020 word list changed, this value will be lower, ")
+say("      by ρ≈r thus overestimates measurement error, conservative direction)")
+say("estimate SEM = ", round(sem, 2), " points; minimal detectable change MDC95 = ", round(mdc, 2), " points")
 
-## ---------------- 2. 转归矩阵与切点附近的往返 ----------------
-say("\n========== 2. 转归矩阵（配对样本）==========")
+## ---------------- 2. transition matrix and movements around cutoff ----------------
+say("\n========== 2. transition matrix(paired sample)==========")
 cut_pop <- floor(mu18 - sd18)
 pt_paired[, g18 := cut(mem18, c(-Inf, cut_pop, 6, 9, Inf),
                        labels = c(paste0("≤", cut_pop), "4-6", "7-9", "≥10"))]
@@ -57,30 +57,30 @@ pt_paired[, g20 := cut(mem20, c(-Inf, cut_pop, 6, 9, Inf),
                        labels = c(paste0("≤", cut_pop), "4-6", "7-9", "≥10"))]
 tt <- dcast(pt_paired[, .(n = .N), by = .(g18, g20)], g18 ~ g20, value.var = "n", fill = 0)
 pt(tt)
-say("\n按 2018 分数的分组，2020 跨阈值（≤", cut_pop, "）的比例：")
-say("（只列 2018 未受损者）")
+say("\n by 2018 score groups, 2020 threshold crossing(≤", cut_pop, ")proportion of: ")
+say("(list only 2018 unimpaired participants)")
 sub <- pt_paired[mem18 > cut_pop]
-sub[, g := cut(mem18, c(cut_pop, 6, 9, Inf), labels = c("4-6（紧贴切点上方）", "7-9", "≥10"))]
-pt(sub[, .(n = .N, 事件 = sum(mem20 <= cut_pop),
-           跨线率 = paste0(round(100*mean(mem20 <= cut_pop), 1), "%")), by = g][order(g)])
-say("→ 紧贴切点者的跨线率是高分组的 ",
+sub[, g := cut(mem18, c(cut_pop, 6, 9, Inf), labels = c("4-6(immediately above cutoff)", "7-9", "≥10"))]
+pt(sub[, .(n = .N, events = sum(mem20 <= cut_pop),
+           crossing_rate = paste0(round(100*mean(mem20 <= cut_pop), 1), "%")), by = g][order(g)])
+say("→ near cutoff crossing rate relative to high score group ",
     round(sub[mem18 %in% 4:6, mean(mem20 <= cut_pop)] / sub[mem18 >= 10, mean(mem20 <= cut_pop)], 1),
-    " 倍")
+    " fold")
 
-## 事件中的下降幅度：有多少超过最小可测变化
+## decline magnitude among events: how many exceed minimal detectable change
 ev <- pt_paired[mem18 > cut_pop & mem20 <= cut_pop]
-say("\n跨阈值事件 n = ", nrow(ev),
-    "；其中下降幅度 ≥ MDC95（", round(mdc, 2), " 分）者 ",
-    sum(ev$draw <= -mdc), " 例（", round(100*mean(ev$draw <= -mdc), 1), "%）")
-say("   下降幅度中位数 = ", round(median(ev$draw), 1), " 分；≥5 分者 ",
-    sum(ev$draw <= -5), " 例（", round(100*mean(ev$draw <= -5), 1), "%）")
-say("→ 其余跨线者的下降幅度在测量波动可解释范围内（含回归均值）")
-say("\n对照：2018 未受损者中，非事件者的分数变化中位数 = ",
-    round(median(sub[mem20 > cut_pop]$draw), 1), " 分")
+say("\n threshold crossing events n = ", nrow(ev),
+    "; of which decline magnitude ≥ MDC95(", round(mdc, 2), " points)participants ",
+    sum(ev$draw <= -mdc), " cases(", round(100*mean(ev$draw <= -mdc), 1), "%)")
+say("   median decline = ", round(median(ev$draw), 1), " points; ≥5 scoring participants ",
+    sum(ev$draw <= -5), " cases(", round(100*mean(ev$draw <= -5), 1), "%)")
+say("→ remaining crossing declines compatible with measurement fluctuation(includes regression to mean)")
+say("\n comparison: 2018 among unimpaired participants, median score change in nonevents = ",
+    round(median(sub[mem20 > cut_pop]$draw), 1), " points")
 
-## ---------------- 3. 不同结局口径下的模型表现 ----------------
-say("\n========== 3. 不同结局口径下的模型表现（冻结 vs 同批人重估）==========")
-## m 本身已含协变量；直接在其上补 z 分与变化量，避免 merge 产生 .x/.y 后缀
+## ---------------- 3. model performance under different outcome definitions ----------------
+say("\n========== 3. model performance under different outcome definitions(frozen vs reestimate in identical participants)==========")
+## m already includes covariates; add directly onto it z score and change, avoid merge produce .x/.y suffix
 mm <- m[!is.na(mem18) & !is.na(mem20)]
 mm[, `:=`(z18 = (mem18 - mu18)/sd18, z20 = (mem20 - mu20)/sd20)]
 mm[, `:=`(dz = z20 - z18, draw = mem20 - mem18)]
@@ -95,20 +95,20 @@ mm[, p_frozen := plogis(BETA_OLD[["(Intercept)"]] + BETA_OLD[["age"]]*age18 +
        BETA_OLD[["eduM"]]*as.integer(edu_group == LV[3]) +
        BETA_OLD[["eduH"]]*as.integer(edu_group == LV[4]))]
 
-## 等百分位锚定的 2020 阈值
+## equipercentile anchored 2020 threshold
 p_anchor <- mean(pt_paired$mem18 <= cut_pop)
 cut20p <- as.numeric(quantile(pt_paired$mem20, p_anchor, type = 1))
-say("O2 等百分位锚定：2018 ≤", cut_pop, " 对应百分位 ", round(100*p_anchor, 1),
-    "% → 2020 切点 ≤", cut20p)
+say("O2 equipercentile anchoring: 2018 ≤", cut_pop, " corresponding percentile ", round(100*p_anchor, 1),
+    "% → 2020 cutoff ≤", cut20p)
 
 mm[, o1 := as.integer(mem20 <= cut_pop)]
 mm[, o2 := as.integer(mem20 <= cut20p)]
 mm[, o3 := as.integer(dz <= -1.0)]
 mm[, o4 := as.integer(dz <= -0.5)]
 mm[, o6 := as.integer(mem20 <= cut_pop & draw <= -5)]
-mm_sub <- mm[mem18 > cut_pop]                 # 人群 A：2018 未受损者
-mm_risk <- copy(mm_sub)                       # 跨线类结局的评估人群
-mm_full2 <- mm                               # 人群 B：全部配对者（用于下降类结局，避免截断）
+mm_sub <- mm[mem18 > cut_pop]                 # population A: 2018 unimpaired participants
+mm_risk <- copy(mm_sub)                       # population for threshold crossing outcomes
+mm_full2 <- mm                               # population B: all paired participants(for decline outcomes, avoid truncation)
 
 aucv <- function(y, p) if (length(unique(y)) < 2) NA_real_ else
   as.numeric(auc(roc(y, p, quiet = TRUE, direction = "<")))
@@ -118,35 +118,35 @@ eval_def <- function(col, tag, data = mm_risk) {
   d[, p_new := predict(fit, newdata = d, type = "response")]
   cal <- glm(event ~ qlogis(pmin(pmax(p_frozen, 1e-9), 1 - 1e-9)), data = d, family = binomial())
   a_old <- aucv(d$event, d$p_frozen); a_new <- aucv(d$event, d$p_new)
-  data.table(口径 = tag, 人群 = if (nrow(d) == nrow(mm_risk)) "A 未受损者" else "B 全部配对者",
-             n = nrow(d), 事件 = sum(d$event),
-             事件率 = round(100*mean(d$event), 2),
-             冻结AUC = round(a_old, 4), 重估AUC = round(a_new, 4),
+  data.table(definition = tag, population = if (nrow(d) == nrow(mm_risk)) "A unimpaired participants" else "B all paired participants",
+             n = nrow(d), events = sum(d$event),
+             event_rate = round(100*mean(d$event), 2),
+             frozen_AUC = round(a_old, 4), reestimate_AUC = round(a_new, 4),
              ΔAUC = round(a_new - a_old, 4),
-             冻结校准斜率 = round(coef(cal)[2], 3), 冻结校准截距 = round(coef(cal)[1], 3),
-             Brier冻结 = round(mean((d$p_frozen - d$event)^2), 4),
-             Brier重估 = round(mean((d$p_new - d$event)^2), 4))
+             frozen_calibration_slope = round(coef(cal)[2], 3), frozen_calibration_intercept = round(coef(cal)[1], 3),
+             Brier_frozen = round(mean((d$p_frozen - d$event)^2), 4),
+             Brier_reestimate = round(mean((d$p_new - d$event)^2), 4))
 }
 defs <- rbind(
-  eval_def("o1", paste0("O1 绝对切点 ≤", cut_pop, "（现状）"), mm_risk),
-  eval_def("o2", "O2 等百分位锚定", mm_risk),
-  eval_def("o6", "O6 跨阈值且下降 ≥5 分", mm_risk),
-  eval_def("o3", "O3 波内标准化下降 ≥1 SD", mm_full2),
-  eval_def("o4", "O4 波内标准化下降 ≥0.5 SD", mm_full2),
-  eval_def("o3", "O3 波内标准化下降 ≥1 SD（限未受损者）", mm_risk),
-  eval_def("o4", "O4 波内标准化下降 ≥0.5 SD（限未受损者）", mm_risk))
+  eval_def("o1", paste0("O1 absolute cutoff ≤", cut_pop, "(current status)"), mm_risk),
+  eval_def("o2", "O2 equipercentile anchoring", mm_risk),
+  eval_def("o6", "O6 threshold crossing plus decline ≥5 points", mm_risk),
+  eval_def("o3", "O3 within wave standardized decline ≥1 SD", mm_full2),
+  eval_def("o4", "O4 within wave standardized decline ≥0.5 SD", mm_full2),
+  eval_def("o3", "O3 within wave standardized decline ≥1 SD(restricted to unimpaired participants)", mm_risk),
+  eval_def("o4", "O4 within wave standardized decline ≥0.5 SD(restricted to unimpaired participants)", mm_risk))
 pt(defs)
 fwrite(defs, file.path(OUT, "F05_outcome_definitions.csv"), bom = TRUE)
 
-## ---------------- 4. 模型究竟在预测什么（R²） ----------------
-say("\n========== 4. 四变量能解释什么：水平 vs 变化 ==========")
+## ---------------- 4. what the model actually predicts(R²) ----------------
+say("\n========== 4. what four variables explain: level vs change ==========")
 r2 <- function(form, data) summary(lm(form, data = data))$r.squared
 mm_full[, `:=`(dep = as.integer(cesd18 >= 10),
                edu_group = factor(edu18, levels = LV))]
 mm_sub <- copy(mm_full)[mem18 > cut_pop]
 r2tab <- data.table(
-  样本 = rep(c("2018 未受损者", "全部配对者"), each = 3),
-  结局 = rep(c("2020 记忆分（水平）", "2 年变化量（0–20 分）", "2 年标准化变化 dz"), 2),
+  sample = rep(c("2018 unimpaired participants", "all paired participants"), each = 3),
+  outcome = rep(c("2020 memory score(level)", "2 year change(0–20 points)", "2 year standardized change dz"), 2),
   R2 = c(r2(mem20 ~ age18 + edu_group + dep + adl18, mm_sub),
          r2(draw ~ age18 + edu_group + dep + adl18, mm_sub),
          r2(dz ~ age18 + edu_group + dep + adl18, mm_sub),
@@ -157,14 +157,14 @@ r2tab[, R2 := round(R2, 4)]
 pt(r2tab)
 fwrite(r2tab, file.path(OUT, "F05_R2.csv"), bom = TRUE)
 
-say("\n四变量对「2020 水平」与「2 年变化量」的线性系数（同一量纲 0–20 分，全部配对者）：")
+say("\n four variables for[2020 level]and[2 year change]linear coefficient of(same scale 0–20 points, all paired participants): ")
 lv <- summary(lm(mem20 ~ age18 + edu_group + dep + adl18, data = mm_full2))$coefficients
 ch <- summary(lm(draw ~ age18 + edu_group + dep + adl18, data = mm_full2))$coefficients
-cm <- data.table(项 = rownames(lv), 对2020水平 = round(lv[, 1], 3), 对2年变化量 = round(ch[, 1], 3))
+cm <- data.table(items = rownames(lv), for_2020_level = round(lv[, 1], 3), for_2_year_change = round(ch[, 1], 3))
 pt(cm)
 fwrite(cm, file.path(OUT, "F05_coefficients_level_vs_change.csv"), bom = TRUE)
 
-## ---------------- 图 ----------------
+## ---------------- figure ----------------
 png(file.path(OUT, "F05_fig_change_dist.png"), width = 1150, height = 560, res = 120)
 par(mfrow = c(1, 2), mar = c(4.5, 4.5, 3, 1.5))
 hist(pt_paired$draw, breaks = seq(-20.5, 20.5, 1), col = "grey80", border = "white",
@@ -182,4 +182,4 @@ legend("topright", c("2018", "2020"), fill = c("grey60", "grey25"), bty = "n", c
 dev.off()
 
 close(con)
-cat("\n完成 ->", file.path(OUT, "F05_report.txt"), "\n")
+cat("\n complete ->", file.path(OUT, "F05_report.txt"), "\n")

@@ -1,13 +1,13 @@
 invisible(Sys.setlocale('LC_CTYPE', 'Chinese_China.utf8'))
 .libPaths(c('D:/R/library', .libPaths()))
 suppressPackageStartupMessages({library(dplyr); library(mice)})
-P <- 'D:/BaiduSyncdisk/科研/徐中豪'
-ROOT <- file.path(P,'16.论文修订第三轮')
-OUT <- file.path(ROOT,'_核查/输出')
+P <- 'D:/BaiduSyncdisk/research/Xu_Zhonghao'
+ROOT <- file.path(P,'16.manuscript_revision_round_three')
+OUT <- file.path(ROOT,'_audit/output')
 src <- file.path(P,'code/29_A15_sensitivity_analyses.R')
-archive <- file.path(ROOT,'_核查/历史归档/F30_区间修正前_2026-10-15/output/13_A15_敏感性分析/A15_results_2026-09-26.rds')
+archive <- file.path(ROOT,'_audit/historical_archive/F30_before_interval_correction_2026_10_15/output/13_A15_sensitivity_analysis/A15_results_2026-09-26.rds')
 z <- readRDS(if(file.exists(archive)) archive else
- file.path(P,'output/13_A15_敏感性分析/A15_results_2026-09-26.rds'))
+ file.path(P,'output/13_A15_sensitivity_analysis/A15_results_2026-09-26.rds'))
 needed <- c('auc_ci_unweighted','calibration_glm','model_metrics','fixed_score')
 for(e in parse(src,encoding='UTF-8')) if(is.call(e) && identical(e[[1]],as.name('<-')) &&
  is.symbol(e[[2]]) && as.character(e[[2]]) %in% needed) eval(e)
@@ -23,7 +23,7 @@ for(kind in c('cov','out')) {
     mm <- glm(event ~ age + edu_group + dep + adl, data=d, family=binomial())
     stopifnot(mm$converged)
     fits[[i]] <- mm
-    perf[[i]] <- model_metrics('缺失',paste0(kind,'_imputation_',i),
+    perf[[i]] <- model_metrics('missing',paste0(kind,'_imputation_',i),
       if(kind=='cov') 'mice_cov' else 'mice_outcome',d$event,
       predict(mm,newdata=d,type='response'),score=fixed_score(d),n_note=nrow(d),B=0)
     perf[[i]]$imputation <- i
@@ -61,11 +61,11 @@ for(kind in c('cov','out')) {
 }
 perf_all <- bind_rows(all_perf,.id='analysis')
 comparison <- bind_rows(comparisons)
-write.csv(perf_all,file.path(OUT,'F30_40次插补逐次性能.csv'),row.names=FALSE,fileEncoding='UTF-8')
-write.csv(comparison,file.path(OUT,'F30_性能均值与分位数核查.csv'),row.names=FALSE,fileEncoding='UTF-8')
-write.csv(bind_rows(diagnoses),file.path(OUT,'F30_插补对象缺失与方法.csv'),row.names=FALSE,fileEncoding='UTF-8')
-write.csv(bind_rows(coef_checks),file.path(OUT,'F30_原系数区间复核.csv'),row.names=FALSE,fileEncoding='UTF-8')
-saveRDS(all_perf,file.path(OUT,'F30_逐次性能.rds'))
+write.csv(perf_all,file.path(OUT,'F30_40_per_imputation_performance.csv'),row.names=FALSE,fileEncoding='UTF-8')
+write.csv(comparison,file.path(OUT,'F30_audit_performance_means_and_quantiles.csv'),row.names=FALSE,fileEncoding='UTF-8')
+write.csv(bind_rows(diagnoses),file.path(OUT,'F30_imputation_object_missingness_and_methods.csv'),row.names=FALSE,fileEncoding='UTF-8')
+write.csv(bind_rows(coef_checks),file.path(OUT,'F30_audit_original_coefficient_intervals.csv'),row.names=FALSE,fileEncoding='UTF-8')
+saveRDS(all_perf,file.path(OUT,'F30_per_imputation_performance.rds'))
 print(comparison,digits=11,row.names=FALSE)
 # Minimal reproduction of scalar overwrite, independent of study results.
 bug_demo <- data.frame(auc_model=c(.6,.7,.8)) %>% summarise(
@@ -75,4 +75,4 @@ writeLines(c('Original performance means reproduced: PASS',
  'Original pooled coefficient estimates and intervals reproduced: PASS',
  'Original interval endpoints equal means: PASS; scalar-overwrite bug reproduced',
  capture.output(print(comparison,digits=15,row.names=FALSE)),capture.output(sessionInfo())),
- file.path(OUT,'F30_区间核查日志.txt'),useBytes=TRUE)
+ file.path(OUT,'F30_interval_audit_log.txt'),useBytes=TRUE)

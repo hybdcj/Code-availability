@@ -1,13 +1,13 @@
 invisible(Sys.setlocale('LC_CTYPE', 'Chinese_China.utf8'))
 .libPaths(c('D:/R/library',.libPaths()))
-P <- 'D:/BaiduSyncdisk/科研/徐中豪'
-ROOT <- file.path(P,'16.论文修订第三轮')
-OUT <- file.path(ROOT,'_核查/输出')
-BACK <- file.path(ROOT,'_核查/历史归档/F30_区间修正前_2026-10-15')
+P <- 'D:/BaiduSyncdisk/research/Xu_Zhonghao'
+ROOT <- file.path(P,'16.manuscript_revision_round_three')
+OUT <- file.path(ROOT,'_audit/output')
+BACK <- file.path(ROOT,'_audit/historical archive/F30_before_interval_correction_2026_10_15')
 src <- file.path(P,'code/29_A15_sensitivity_analyses.R')
 for(e in parse(src,encoding='UTF-8')) if(is.call(e) && identical(e[[1]],as.name('<-')) &&
  is.symbol(e[[2]]) && as.character(e[[2]])=='summarise_mi_performance') eval(e)
-perf <- readRDS(file.path(OUT,'F30_逐次性能.rds'))
+perf <- readRDS(file.path(OUT,'F30_per_imputation_performance.rds'))
 fixed <- lapply(perf,summarise_mi_performance)
 metrics <- c('auc_model','auc_score','cal_slope','cal_intercept')
 bounds <- unlist(lapply(c('auc','auc_score','cal_slope','cal_intercept'),
@@ -28,11 +28,11 @@ for(kind in names(perf)) {
 stopifnot(fixed$cov$auc_high>fixed$cov$auc_low,
  fixed$out$auc_high>fixed$out$auc_low,
  fixed$cov$auc_score_low==fixed$cov$auc_score_high)
-dirs <- c('output/13_A15_敏感性分析','output/14_A16_图表/补充表_A15敏感性')
-csv_names <- c('A15_缺失_MICE_协变量_性能汇总.csv','A15_缺失_MICE_结局_性能汇总.csv','A15_内部敏感性汇总.csv')
+dirs <- c('output/13_A15_sensitivity_analysis','output/14_A16_figures_and_tables/supplementary table_A15 sensitivity')
+csv_names <- c('A15_missing_MICE_covariates_performance_summary.csv','A15_missing_MICE_outcome_performance_summary.csv','A15_internal_sensitivity_summary.csv')
 csv_rel <- unlist(lapply(dirs,function(d)file.path(d,csv_names)))
-md_rel <- file.path(dirs,'A15_敏感性分析报告_2026-09-26.md')
-rds_rel <- 'output/13_A15_敏感性分析/A15_results_2026-09-26.rds'
+md_rel <- file.path(dirs,'A15_sensitivity_analysis_report_2026_09_26.md')
+rds_rel <- 'output/13_A15_sensitivity_analysis/A15_results_2026-09-26.rds'
 rels <- c(csv_rel,md_rel,rds_rel)
 for(rel in rels) {
   dest <- file.path(BACK,rel)
@@ -64,30 +64,30 @@ for(rel in csv_rel) {
   write.csv(repair(tab),file.path(P,rel),row.names=FALSE,fileEncoding='UTF-8')
 }
 saveRDS(z,file.path(P,rds_rel))
-note <- 'MICE 连续模型在每个插补数据集中重新拟合并在同一数据上评价，属于表观性能；校准斜率约1、截距约0不代表外部校准。整数评分固定应用原评分规则。结局缺失分析的事件数为20次插补的平均值，不是实际观察到的整数事件数。'
+note <- 'MICE continuous model refitted and evaluated in each imputed dataset, represents apparent performance; calibration slope approximately 1, intercept approximately 0 does not represent external calibration.integer score applies the original fixed rules.event count in missing outcome analysis is 20 mean across imputations, not an observed integer event count.'
 for(rel in md_rel) {
   lines <- readLines(file.path(BACK,rel),encoding='UTF-8',warn=FALSE)
   for(kind in c('cov','out')) {
-    tag <- if(kind=='cov') '协变量缺失；结局观察者' else '结局缺失，MAR；含固定队列辅助变量'
-    ii <- which(grepl(tag,lines,fixed=TRUE) & grepl('（插补间 ',lines,fixed=TRUE))
+    tag <- if(kind=='cov') 'missing covariates; participants with observed outcomes' else 'missing outcome, MAR; including fixed cohort auxiliary variables'
+    ii <- which(grepl(tag,lines,fixed=TRUE) & grepl('(between imputations ',lines,fixed=TRUE))
     stopifnot(length(ii)==1)
     values <- fixed[[kind]]
-    replacement <- sprintf('%.6f（插补间 %.6f–%.6f）',values$auc_model,values$auc_low,values$auc_high)
-    lines[ii] <- sub('[0-9.]+（插补间 [0-9.]+–[0-9.]+）',replacement,lines[ii])
-    if(kind=='out') lines[ii] <- sub('|2,451 |','|2,450.9（插补均值） |',lines[ii],fixed=TRUE)
+    replacement <- sprintf('%.6f(between imputations %.6f–%.6f)',values$auc_model,values$auc_low,values$auc_high)
+    lines[ii] <- sub('[0-9.]+\\(between imputations [0-9.]+–[0-9.]+\\)',replacement,lines[ii])
+    if(kind=='out') lines[ii] <- sub('|2,451 |','|2,450.9(mean across imputations) |',lines[ii],fixed=TRUE)
   }
-  anchor <- which(grepl('MICE 行括号内为 20 次插补',lines,fixed=TRUE))
+  anchor <- which(grepl('MICE parentheses in this row show 20 across imputations',lines,fixed=TRUE))
   stopifnot(length(anchor)==1)
   lines <- append(lines,c('',note),after=anchor)
   writeLines(lines,file.path(P,rel),useBytes=TRUE)
 }
 delivery <- rbind(as.data.frame(z$perf_cov_sum),as.data.frame(z$perf_out_sum))
-delivery$performance_scope <- '连续模型逐次重新拟合的表观性能；整数评分规则固定'
+delivery$performance_scope <- 'apparent performance from per imputation continuous model refits; integer scoring rules fixed'
 delivery$imputations <- 20L
 delivery$events_min <- c(min(perf$cov$events_model),min(perf$out$events_model))
 delivery$events_max <- c(max(perf$cov$events_model),max(perf$out$events_model))
-delivery$events_type <- c('实际观察事件数','20次插补事件数均值')
-write.csv(delivery,file.path(ROOT,'F30_多重插补性能_修正版.csv'),row.names=FALSE,fileEncoding='UTF-8')
+delivery$events_type <- c('actually observed events','20 mean events across imputations')
+write.csv(delivery,file.path(ROOT,'F30_multiple_imputation_performance_corrected_version.csv'),row.names=FALSE,fileEncoding='UTF-8')
 # Read back all updated files and verify that F29's corrected model row survives.
 disk <- readRDS(file.path(P,rds_rel))
 stopifnot(isTRUE(all.equal(disk,z,check.environment=FALSE)),
@@ -101,7 +101,7 @@ for(rel in csv_rel) {
 all_rel <- c('code/29_A15_sensitivity_analyses.R',rels)
 write.csv(data.frame(path=all_rel,before_md5=unname(tools::md5sum(file.path(BACK,all_rel))),
  after_md5=unname(tools::md5sum(file.path(P,all_rel)))),
- file.path(OUT,'F30_更新文件校验.csv'),row.names=FALSE,fileEncoding='UTF-8')
+ file.path(OUT,'F30_updated_file_verification.csv'),row.names=FALSE,fileEncoding='UTF-8')
 checks <- c('Original imputation draws preserved: PASS; no MICE rerun',
  'Corrected quantiles versus independent stats::quantile: PASS',
  'Imputation-order invariance: PASS',
@@ -111,6 +111,6 @@ checks <- c('Original imputation draws preserved: PASS; no MICE rerun',
  'Two report tables and interpretation notes updated; figures unchanged',
  capture.output(print(delivery[c('model_type','auc_model','auc_low','auc_high','auc_score','auc_score_low','auc_score_high')],digits=12)),
  capture.output(sessionInfo()))
-writeLines(checks,file.path(OUT,'F30_更新核验日志.txt'),useBytes=TRUE)
+writeLines(checks,file.path(OUT,'F30_update_verification_log.txt'),useBytes=TRUE)
 cat(paste(head(checks,7),collapse='\n'),'\n')
 print(delivery[c('model_type','auc_model','auc_low','auc_high','auc_score','auc_score_low','auc_score_high')],digits=10)

@@ -1,15 +1,15 @@
 # =============================================================================
-# 02_table1.R  --  CHARLS 2020 基线特征表（Table 1）+ 患病率（v4.4，2026-09-12）
-# 口径：主分析 = 认知 9 分项完整（教育已补齐，零缺失）；切点 = 教育分层（<本层均值−1SD）
-# 版本：v4.4（2026-09-12）——① TableS1 放回 edu_f（选择偏倚教育梯度，回填后两组教育零缺失）；
-#                      ② S2/S4/S5 的 CSV 末行脚注改为合法带引号字段（原含逗号会被解析成多列）；
-#                      ③ 教育分层（B/A 两口径）统一为加权估计 + 95%CI，并另列未加权点估计；
-#                      ④ TableS2/S3/S4 输出新增 n 列（各模型实际样本量）
-# 输入：output/01_2020单期基线/analysis_2020.rds
-# 输出：output/01_2020单期基线/Table1_baseline.docx / .html、Table1_and_prevalence.xlsx、
-#       TableS1_complete_vs_incomplete.csv、TableS2_pain_sleep_varform.csv（加权）、
-#       TableS3_comorbidity_adj.csv（慢病/功能/行为变量加权校正关联）、
-#       TableS4_sensitivityA_adj.csv（敏感性A口径下的加权校正关联，与 S3 对称）
+# 02_table1.R  --  CHARLS 2020 baseline characteristics table(Table 1)+ prevalence(v4.4, 2026-09-12)
+# definition: primary analysis = cognition 9 complete components(education completed, no missing values); cutoff = education strata(<within stratum mean−1SD)
+# version: v4.4(2026-09-12)——① TableS1 restore edu_f(education gradient in selection bias, no missing education in either group after backfilling); 
+#                      ② S2/S4/S5 of CSV quote final footnote row as a valid field(unquoted commas previously produced extra columns); 
+#                      ③ education strata(B/A two definitions)harmonize to weighted estimates + 95%CI, also report unweighted point estimates; 
+#                      ④ TableS2/S3/S4 additional outputs n columns(actual sample size of each model)
+# input: output/01_2020_single_wave_baseline/analysis_2020.rds
+# output: output/01_2020_single_wave_baseline/Table1_baseline.docx / .html, Table1_and_prevalence.xlsx, 
+#       TableS1_complete_vs_incomplete.csv, TableS2_pain_sleep_varform.csv(weighted), 
+#       TableS3_comorbidity_adj.csv(chronic conditions/function/weighted adjusted associations of behavioral variables), 
+#       TableS4_sensitivityA_adj.csv(sensitivity A weighted adjusted associations under this definition, and S3 symmetric)
 # =============================================================================
 Sys.setlocale("LC_ALL", "zh_CN.UTF-8")
 .libPaths(c("D:/R/library", .libPaths()))
@@ -17,19 +17,19 @@ suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(gtsummary); library(survey)
   library(openxlsx); library(flextable); library(srvyr)
 })
-proj <- "D:/BaiduSyncdisk/科研/徐中豪"; out <- file.path(proj, "output", "01_2020单期基线")
+proj <- "D:/BaiduSyncdisk/research/Xu_Zhonghao"; out <- file.path(proj, "output", "01_2020_single_wave_baseline")
 dat_all <- readRDS(file.path(out, "analysis_2020.rds"))
 
-## ---- 1. 样本切分 ----
-dat    <- dat_all %>% filter(primary == 1, !is.na(cog_impair))   # 主分析样本
-# 注：noedu（认知完整但教育缺失）在 2026-09-12 教育补齐后恒为空集；
-#     该变量仅为兼容旧流程保留，下方 S1 分组构造已自动跳过空组。
+## ---- 1. sample partition ----
+dat    <- dat_all %>% filter(primary == 1, !is.na(cog_impair))   # primary analysis sample
+# note: noedu(complete cognition but missing education)at 2026-09-12 always empty after completing education; 
+#     retained only for backward compatibility, below S1 group construction automatically skips empty groups.
 noedu  <- dat_all %>% filter(primary == 1,  is.na(cog_impair))
-incomp <- dat_all %>% filter(primary == 0)                       # 未测全（敏感性）
-cat(sprintf("主分析 n=%d | 认知完整但教育缺失 n=%d | 未测全 n=%d\n",
+incomp <- dat_all %>% filter(primary == 0)                       # incomplete assessment(sensitivity)
+cat(sprintf("primary analysis n=%d | complete cognition but missing education n=%d | incomplete assessment n=%d\n",
             nrow(dat), nrow(noedu), nrow(incomp)))
 
-## ---- 2. 变量整理与标签 ----
+## ---- 2. variable preparation and labels ----
 prep <- function(d) d %>% mutate(
   age_cat   = cut(age, breaks = c(44, 54, 64, 74, Inf),
                   labels = c("45-54", "55-64", "65-74", "≥75")),
@@ -45,7 +45,7 @@ prep <- function(d) d %>% mutate(
   pain_f    = factor(pain_any, c(0,1), c("No pain","Any pain")),
   pain3_f   = factor(pain_3cat, c(0,1,2), c("No pain","Mild","Severe")),
   sleep_f   = factor(sleep_cat, levels = c("<6h","6-8h",">8h")),
-  sleep_ref = factor(sleep_cat, levels = c("6-8h","<6h",">8h")),   # 建模时以 6-8h 为参照
+  sleep_ref = factor(sleep_cat, levels = c("6-8h","<6h",">8h")),   # model reference is 6-8h as reference
   dep_f     = factor(depression, c(0,1), c("No","Yes")),
   adl_f     = factor(adl_any,  c(0,1), c("No","Yes")),
   iadl_f    = factor(iadl_any, c(0,1), c("No","Yes")),
@@ -67,7 +67,7 @@ prep <- function(d) d %>% mutate(
 )
 dat <- prep(dat); noedu <- prep(noedu); incomp <- prep(incomp)
 
-## ---- 3. Table 1（主分析样本，按认知状态分组） ----
+## ---- 3. Table 1(primary analysis sample, grouped by cognitive status) ----
 t1_vars <- c("age", "age_cat", "female_f", "edu_f", "married_f", "urban_f", "hukou_f",
              "hypertension_f","dyslipidemia_f","diabetes_f","heart_disease_f","stroke_f",
              "lung_disease_f","arthritis_f","kidney_disease_f","multi_f","n_chronic",
@@ -91,7 +91,7 @@ labels1 <- list(
   imrc ~ "Immediate word recall (0-10)", dlrc ~ "Delayed word recall (0-10)",
   memory ~ "Episodic memory (0-20)", orient ~ "Orientation (0-5)", ser7 ~ "Serial 7s (0-5)",
   draw ~ "Figure drawing (0-1)", mental ~ "Mental status (0-11)", global ~ "Global cognition (0-31)")
-# 按实际入表变量动态筛选标签（避免 label 引用不存在的列）
+# select labels dynamically for variables actually tabulated(avoid label reference nonexistent columns)
 labels_for <- function(vars) labels1[vapply(labels1, function(f) as.character(f[[2]]), character(1)) %in% vars]
 
 tab1 <- dat %>% select(all_of(c("cog_f", t1_vars))) %>%
@@ -104,15 +104,15 @@ tab1 <- dat %>% select(all_of(c("cog_f", t1_vars))) %>%
   modify_table_styling(columns = label,
     footnote = "Cognitive impairment was defined with education-stratified cutoffs; between-group comparisons for education and sex are by design and not interpretable as tests of association.")
 
-## ---- 4. Table S1：主分析 vs 未测全（缺失偏倚评估） ----
-# 2026-09-12（v4.2）：edu_f 已放回 s1_vars。
-#   旧理由（"教育缺失本就是第 2 组的定义"）对应回填前的分组：当时第 2 组 = 认知完整但教育缺失。
-#   回填后第 2 组已是"认知未测全"，且两组教育均零缺失，教育梯度（小学以下 71.7% vs 36.8%）
-#   是选择偏倚的关键指标，必须随表提交，否则正文数字在附表里查不到。
+## ---- 4. Table S1: primary analysis vs incomplete assessment(missingness bias assessment) ----
+# 2026-09-12(v4.2): edu_f restored s1_vars.
+#   previous rationale("missing education defines group 2 group definition")corresponds to groups before backfilling: at that time group 2 groups = complete cognition but missing education.
+#   after backfilling group 2 group is now"incomplete cognitive assessment", and neither group has missing education, education gradient(below primary school 71.7% vs 36.8%)
+#   is a key selection bias indicator, must accompany the table, otherwise manuscript numbers cannot be found in the supplement.
 s1_vars <- c("age", "age_cat", "female_f", "edu_f", "urban_f", "married_f",
              "hypertension_f","diabetes_f","stroke_f","arthritis_f",
              "pain3_f","dep_f","adl_f","iadl_f","sleep_h")
-# 2026-09-12：教育经 zredu+ba010 合并后已无缺失，空组自动剔除
+# 2026-09-12: education via zredu+ba010 no missing values remain after combining, empty groups removed automatically
 grp_list <- list(
   "Analytic sample (complete cognition)"       = dat,
   "Complete cognition, education missing"      = noedu,
@@ -129,24 +129,24 @@ tabS1 <- grp %>% tbl_summary(by = grp,
   add_p(test = list(all_continuous() ~ "kruskal.test", all_categorical() ~ "chisq.test")) %>%
   bold_labels()
 
-## ---- 4b. Table S2：疼痛/睡眠"变量形式"敏感性分析（粗模型 + 校正模型 OR） ----
-# 目的：同时呈现二分类与有序分组两种口径，避免"只报显著结果"的质疑
-# 口径：survey 加权 logistic（INDV_weight，社区聚类）；校正 年龄+性别+教育(四组)+城乡
+## ---- 4b. Table S2: pain/sleep"variable specification"sensitivity analysis(crude model + adjusted model OR) ----
+# purpose: show both binary and ordinal specifications, avoid"reporting only significant findings"concern about
+# definition: survey weighted logistic(INDV_weight, community clustering); adjustment age+sex+education (four groups)+urban or rural
 des_main <- dat %>% filter(!is.na(INDV_weight), !is.na(communityID)) %>%
   as_survey_design(weights = INDV_weight, ids = communityID)
-# 注：只汇报暴露项系数；协变量（含 edu_f）系数不汇报——教育正是本结局分层切点的依据，
-#     其系数不可解释，若输出易被误读为"学历越高、认知受损风险越高"。
+# note: report exposure coefficients only; covariates(including edu_f)coefficients not reported——education defines the outcome specific cutoffs, 
+#     its coefficient is not interpretable, reporting could be misread as"higher education, higher cognitive impairment risk".
 or_block <- function(expo, label) {
   adj <- " + age + female_f + edu_f + urban_f"
   grab <- function(f, tag) {
     m <- svyglm(f, design = des_main, family = quasibinomial)
     s <- summary(m)$coefficients
-    s <- s[grepl(paste0("^", expo), rownames(s)), , drop = FALSE]   # 仅暴露项
+    s <- s[grepl(paste0("^", expo), rownames(s)), , drop = FALSE]   # exposure terms only
     data.frame(exposure = label, term = rownames(s), model = tag,
                OR_95CI = sprintf("%.2f (%.2f-%.2f)", exp(s[,1]),
                                  exp(s[,1] - 1.96*s[,2]), exp(s[,1] + 1.96*s[,2])),
                p = sprintf("%.3g", s[,4]),
-               # 该模型实际进入分析的样本量（2026-09-12 补：各模型缺失不同，n 不同）
+               # actual sample size entering this model(2026-09-12 supplement: missingness differs across models, n different)
                n = nrow(model.frame(m)), row.names = NULL, stringsAsFactors = FALSE)
   }
   rbind(grab(as.formula(paste0("cog_impair ~ ", expo)), "Crude"),
@@ -165,8 +165,8 @@ tabS2 <- bind_rows(
   or_block("sleep_restless_f", "Restless sleep")
 )
 
-## ---- 4c. Table S3：慢病及功能/行为变量的加权校正关联 ----
-# 与 Table S2 同一口径：svyglm 加权，校正 年龄+性别+教育(四组)+城乡
+## ---- 4c. Table S3: chronic conditions and function/weighted adjusted associations of behavioral variables ----
+# and Table S2 same definition: svyglm weighted, adjustment age+sex+education (four groups)+urban or rural
 run_adj <- function(v, label){
   f <- as.formula(paste0("cog_impair ~ ", v, " + age + female_f + edu_f + urban_f"))
   m <- svyglm(f, design = des_main, family = quasibinomial)
@@ -196,9 +196,9 @@ tabS3 <- bind_rows(
   run_adj("drink_f",        "Alcohol use, past year (ref = none)")
 )
 
-## ---- 4d. Table S4：敏感性 A 口径（整体均值−1SD 切点）下的加权校正关联 ----
-# 与 S3 对称：同一批暴露、同一加权与校正集，仅结局换成 cog_low_1sd。
-# 目的：卒中/多重共病/饮酒等结论存在切点口径敏感性，须与主定义并列报告。
+## ---- 4d. Table S4: sensitivity A definition(overall mean−1SD cutoff)weighted adjusted associations under ----
+# and S3 symmetric: same exposures, same weights and adjustment set, only outcome changes to cog_low_1sd.
+# purpose: stroke/multimorbidity/alcohol and related findings depend on cutoff definitions, report alongside primary definition.
 run_adj_A <- function(v, label){
   f <- as.formula(paste0("cog_low_1sd ~ ", v, " + age + female_f + edu_f + urban_f"))
   m <- svyglm(f, design = des_main, family = quasibinomial)
@@ -228,10 +228,10 @@ tabS4 <- bind_rows(
   run_adj_A("drink_f",        "Alcohol use, past year (ref = none)")
 )
 
-## ---- 4e. Table S5：三种切点口径（B / A / C）下核心暴露的校正关联 ----
-# 目的：SAP §6 的 S1（口径 C）与 S2（口径 A）敏感性分析需要核心暴露在两口径下的模型结果；
-#       此前仅对慢病/功能/行为变量跑过 A 口径，**睡眠分组与疼痛三档未在 A/C 口径下建模**。
-# 口径：survey 加权 logistic；校正 年龄+性别+教育(四组)+城乡；结局分别取 B/A/C 三种切点定义。
+## ---- 4e. Table S5: three cutoff definitions(B / A / C)adjusted associations of core exposures under ----
+# purpose: SAP §6 of S1(definition C)and S2(definition A)sensitivity analysis requires core exposure models under both definitions; 
+#       previously only chronic conditions/function/behavioral variables analyzed A definition, **sleep categories and three pain levels not modeled under A/C modeled under this definition**.
+# definition: survey weighted logistic; adjustment age+sex+education (four groups)+urban or rural; outcomes respectively use B/A/C three cutoff definitions.
 core <- list(
   list(v = "depression", lab = "Depression (CES-D-10 >= 10)"),
   list(v = "adl_any",    lab = "ADL limitation"),
@@ -265,8 +265,8 @@ NOTE_S5 <- paste0("Note: B = education-stratified cut-off (primary), A = overall
                   "(individual weight INDV_weight, community as cluster), adjusted for age, sex, ",
                   "education (4 groups) and residence. Only exposure coefficients are reported.")
 
-## ---- 5. 患病率（主定义 + 敏感性） ----
-# des_main 已在 4b 节创建（主分析样本的 survey 设计）
+## ---- 5. prevalence(primary definition + sensitivity) ----
+# des_main already in 4b created in section(of the primary analysis sample survey design)
 mk_design <- function(d) d %>% filter(!is.na(INDV_weight), !is.na(communityID)) %>%
   as_survey_design(weights = INDV_weight, ids = communityID)
 prev_row <- function(var, label, d, design = NULL) {
@@ -285,13 +285,13 @@ prev_row <- function(var, label, d, design = NULL) {
 }
 des_all  <- mk_design(dat_all %>% filter(!is.na(cog_impair)))
 prev_tab <- bind_rows(
-  prev_row("cog_impair",   "【主定义】教育分层切点，认知完整者",        dat, des_main),
-  prev_row("cog_low_1sd",  "敏感性A：整体均值−1SD，认知完整者",        dat, des_main),
-  prev_row("cog_low_q1",   "敏感性C：最低四分位，认知完整者",          dat, des_main),
-  prev_row("cog_impair",   "敏感性D：教育分层切点，纳入未测全者",      dat_all %>% filter(!is.na(cog_impair)), des_all)
+  prev_row("cog_impair",   "[primary definition]education specific cutoff, participants with complete cognition",        dat, des_main),
+  prev_row("cog_low_1sd",  "sensitivity A: overall mean−1SD, participants with complete cognition",        dat, des_main),
+  prev_row("cog_low_q1",   "sensitivity C: lowest quartile, participants with complete cognition",          dat, des_main),
+  prev_row("cog_impair",   "sensitivity D: education specific cutoff, include incomplete assessments",      dat_all %>% filter(!is.na(cog_impair)), des_all)
 )
 
-## ---- 6. 分层患病率 ----
+## ---- 6. stratified prevalence ----
 strat <- function(d, byvar, label, design, def = "cog_impair", tag = "primary") {
   dd <- d %>% filter(!is.na(.data[[byvar]]))
   ds <- dd %>% filter(!is.na(INDV_weight), !is.na(communityID)) %>%
@@ -303,29 +303,29 @@ strat <- function(d, byvar, label, design, def = "cog_impair", tag = "primary") 
     select(stratum, level, prevalence, n) %>% as.data.frame()
 }
 strat_tab <- bind_rows(
-  strat(dat, "age_cat",  "Age group",  des_main, "cog_impair",  "主定义B"),
-  strat(dat, "female_f", "Sex",        des_main, "cog_impair",  "主定义B"),
-  strat(dat, "urban_f",  "Residence",  des_main, "cog_impair",  "主定义B"),
-  strat(dat, "age_cat",  "Age group",  des_main, "cog_low_1sd", "敏感性A"),
-  strat(dat, "female_f", "Sex",        des_main, "cog_low_1sd", "敏感性A"),
-  strat(dat, "urban_f",  "Residence",  des_main, "cog_low_1sd", "敏感性A")
+  strat(dat, "age_cat",  "Age group",  des_main, "cog_impair",  "primary definition B"),
+  strat(dat, "female_f", "Sex",        des_main, "cog_impair",  "primary definition B"),
+  strat(dat, "urban_f",  "Residence",  des_main, "cog_impair",  "primary definition B"),
+  strat(dat, "age_cat",  "Age group",  des_main, "cog_low_1sd", "sensitivity A"),
+  strat(dat, "female_f", "Sex",        des_main, "cog_low_1sd", "sensitivity A"),
+  strat(dat, "urban_f",  "Residence",  des_main, "cog_low_1sd", "sensitivity A")
 ) %>% mutate(unweighted = NA_character_)
-# 教育梯度（v4.3，2026-09-12）：与其余分层统一为【加权 + 95%CI】，另列【未加权】点估计（全样本 n=14,655）。
-#   主定义 B 的切点按教育层内定义，B 列教育梯度被按构造压缩（加权约 13-17%，组间 CI 重叠）；
-#   敏感性 A（整体切点）下教育梯度即真实梯度图谱（加权 34.8% -> 1.8%）。
-edu_unw <- bind_rows(lapply(c("主定义B", "敏感性A"), function(tag) {
-  v <- if (tag == "主定义B") "cog_low_edu" else "cog_low_1sd"
+# education gradient(v4.3, 2026-09-12): harmonize with other strata as[weighted + 95%CI], listed separately[unweighted]point estimate(full sample n=14,655).
+#   primary definition B cutoffs defined within education strata, B education gradient is compressed by construction(weighted approximately 13-17%, between groups CI overlap); 
+#   sensitivity A(overall cutoff)education gradient under this definition reflects the underlying pattern(weighted 34.8% -> 1.8%).
+edu_unw <- bind_rows(lapply(c("primary definition B", "sensitivity A"), function(tag) {
+  v <- if (tag == "primary definition B") "cog_low_edu" else "cog_low_1sd"
   dat %>% filter(!is.na(edu_f)) %>% group_by(edu_f) %>%
     summarise(p = mean(.data[[v]], na.rm = TRUE), .groups = "drop") %>%
     transmute(tag = tag, level = as.character(edu_f), unweighted = sprintf("%.1f%%", 100*p))
 }))
-strat_edu <- bind_rows(lapply(c("主定义B", "敏感性A"), function(tag) {
-  v <- if (tag == "主定义B") "cog_low_edu" else "cog_low_1sd"
+strat_edu <- bind_rows(lapply(c("primary definition B", "sensitivity A"), function(tag) {
+  v <- if (tag == "primary definition B") "cog_low_edu" else "cog_low_1sd"
   ds <- dat %>% filter(!is.na(edu_f), !is.na(INDV_weight), !is.na(communityID)) %>%
     as_survey_design(weights = INDV_weight, ids = communityID)
   ds %>% group_by(edu_f) %>%
     summarise(p = survey_mean(.data[[v]], na.rm = TRUE, vartype = "ci"), n = unweighted(n())) %>%
-    mutate(stratum = paste0("Education [", tag, ", 加权]"), level = as.character(edu_f),
+    mutate(stratum = paste0("Education [", tag, ", weighted]"), level = as.character(edu_f),
            prevalence = sprintf("%.1f%% (%.1f-%.1f)", 100*p, 100*p_low, 100*p_upp), tag = tag) %>%
     select(tag, stratum, level, prevalence, n) %>% as.data.frame()
 })) %>% left_join(edu_unw, by = c("tag", "level")) %>%
@@ -336,7 +336,7 @@ NOTE_STRAT <- paste0("Education rows: prevalence = survey-weighted estimate (95%
   "subsample; unweighted = point estimate on the full analytic sample (n=14,655). Other strata: weighted ",
   "estimates only; n = weighted-eligible respondents.")
 
-## ---- 7. 输出 ----
+## ---- 7. output ----
 dir.create(out, showWarnings = FALSE)
 print(tab1)
 as_gt(tab1) %>% gt::gtsave(file.path(out, "Table1_baseline.html"))
@@ -371,13 +371,13 @@ addWorksheet(w1, "Prevalence_stratified"); writeData(w1, "Prevalence_stratified"
 writeData(w1, "Prevalence_stratified", NOTE_STRAT, startRow = nrow(strat_all) + 3, startCol = 1)
 saveWorkbook(w1, file.path(out, "Table1_and_prevalence.xlsx"), overwrite = TRUE)
 
-# docx 最后写：若被 Word 占用，不影响 html/xlsx 产出
+# docx write last: if locked by Word in use, does not affect html/xlsx generation
 save_as_docx(as_flex_table(tab1), path = file.path(out, "Table1_baseline.docx"))
 
-cat("\n=== 认知受损患病率 ===\n"); print(prev_tab)
-cat("\n=== 分层 ===\n"); print(strat_all)
-cat("\n=== Table S2：变量形式敏感性分析 ===\n"); print(tabS2)
-cat("\n=== Table S3：慢病及功能/行为变量加权校正关联 ===\n"); print(tabS3)
-cat("\n=== Table S4：敏感性A口径加权校正关联 ===\n"); print(tabS4)
-cat("\n=== Table S5：三口径核心暴露 ===\n"); print(tabS5)
-cat("\n完成：Table1_baseline.docx / .html、TableS1_*.html/.csv、TableS2/S3/S4/S5_*.csv、Table1_and_prevalence.xlsx\n")
+cat("\n=== cognitive impairment prevalence ===\n"); print(prev_tab)
+cat("\n=== stratification ===\n"); print(strat_all)
+cat("\n=== Table S2: variable specification sensitivity analysis ===\n"); print(tabS2)
+cat("\n=== Table S3: chronic conditions and function/weighted adjusted associations of behavioral variables ===\n"); print(tabS3)
+cat("\n=== Table S4: sensitivity A weighted adjusted associations by definition ===\n"); print(tabS4)
+cat("\n=== Table S5: core exposures under three definitions ===\n"); print(tabS5)
+cat("\n complete: Table1_baseline.docx / .html, TableS1_*.html/.csv, TableS2/S3/S4/S5_*.csv, Table1_and_prevalence.xlsx\n")

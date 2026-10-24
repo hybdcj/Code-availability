@@ -1,8 +1,8 @@
 # ============================================================
-# 血液统计第二步：2011 与 2015 两波血液数据统一、固定队列对接
-# 输出：
-#   - 两波血液变量统一后的固定队列分析数据
-#   - 两波重叠、缺失、分布和变化摘要
+# blood analysis step two: 2011 and 2015 harmonize two wave blood data, fixed cohort linkage
+# output: 
+#   - fixed cohort dataset with harmonized two wave blood measurements
+#   - two wave overlap, missing, distribution and change summary
 # ============================================================
 
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
@@ -15,8 +15,8 @@ suppressPackageStartupMessages({
 
 in_2011_zip <- "data/raw/wave1_2011/blood/Blood_20140429.zip"
 in_2015_zip <- "data/raw/wave3_2015/blood/Blood.zip"
-in_cohort   <- "output/04_纵向队列/cohort_change_2026-09-13.rds"
-out_dir     <- "output/07_血液指标"
+in_cohort   <- "output/04_longitudinal_cohort/cohort_change_2026-09-13.rds"
+out_dir     <- "output/07_blood_biomarkers"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 normalize_id <- function(x) {
@@ -108,7 +108,7 @@ analysis <- cohort_long %>%
     d_logcrp = logcrp_2015 - logcrp_2011
   )
 
-# 两波重叠统计
+# two wave overlap counts
 overlap <- tibble(
   fixed_cohort = nrow(analysis),
   any_2011 = sum(analysis$any_2011),
@@ -123,7 +123,7 @@ overlap <- tibble(
   decline2_core3_both = sum(analysis$decline_2plus & analysis$core3_both, na.rm = TRUE)
 )
 
-# 两波逐变量摘要
+# two wave variable summaries
 summ_one <- function(x, wave, variable) {
   tibble(
     wave = wave, variable = variable,
@@ -169,23 +169,23 @@ saveRDS(analysis, file.path(out_dir, "analysis_blood_two_waves_fixedcohort_2026-
 
 fmt <- function(x, d = 3) formatC(x, format = "f", digits = d)
 lines <- c(
-  "# 血液统计第二步 · 两波统一与固定队列对接",
+  "# blood analysis step two · two wave harmonization and fixed cohort linkage",
   "",
-  "> 生成日期：2026-09-20（年龄口径修正后重算）",
+  "> generation date: 2026-09-20(recompute after correcting age eligibility)",
   "",
-  "## 一、结论",
+  "## one, conclusion",
   "",
-  paste0("- 2011 血液：n=", nrow(b11), "；2015 血液：n=", nrow(b15), "。"),
-  paste0("- 五波固定队列：n=", overlap$fixed_cohort, "。"),
-  paste0("- 两波至少一项血液指标均有值：**", overlap$both_any, " 人**。"),
-  paste0("- 两波 PLT+WBC+CRP 均完整：**", overlap$core3_both, " 人**。"),
-  paste0("- 两波血液子集中，十年新发认知受损：", overlap$incident_both_any, " 人；下降≥2分：", overlap$decline2_both_any, " 人。"),
-  paste0("- 三项核心指标两波均完整者中，新发受损：", overlap$incident_core3_both, " 人；下降≥2分：", overlap$decline2_core3_both, " 人。"),
-  "- 2015 数据同样没有中性粒细胞/淋巴细胞分类，Neu、NLR、PLR 仍无法计算。",
+  paste0("- 2011 blood: n=", nrow(b11), "; 2015 blood: n=", nrow(b15), "."),
+  paste0("- five wave fixed cohort: n=", overlap$fixed_cohort, "."),
+  paste0("- at least one blood measure available at both waves: **", overlap$both_any, " participants**."),
+  paste0("- two waves PLT+WBC+CRP both complete: **", overlap$core3_both, " participants**."),
+  paste0("- in two wave blood subset, ten year incident cognitive impairment: ", overlap$incident_both_any, " participants; decline≥2 points: ", overlap$decline2_both_any, " participants."),
+  paste0("- participants complete for all three biomarkers at both waves, incident impairment: ", overlap$incident_core3_both, " participants; decline≥2 points: ", overlap$decline2_core3_both, " participants."),
+  "- 2015 data also lack neutrophils/lymphocyte differential, Neu, NLR, PLR still cannot calculate.",
   "",
-  "## 二、两波变量摘要",
+  "## two, two wave variable summary",
   "",
-  "| 波次 | 指标 | n | 缺失 | 均值 | SD | 中位数 | P1 | P99 | 最小值 | 最大值 |",
+  "| waves | metrics | n | missing | mean | SD | median | P1 | P99 | minimum | maximum |",
   "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
 )
 for (i in seq_len(nrow(summary_two))) {
@@ -196,9 +196,9 @@ for (i in seq_len(nrow(summary_two))) {
 }
 lines <- c(lines,
   "",
-  "## 三、2015−2011 变化摘要",
+  "## three, 2015−2011 change summary",
   "",
-  "| 指标 | n | 均值变化 | SD | 中位数变化 | P1 | P99 |",
+  "| metrics | n | mean change | SD | median change | P1 | P99 |",
   "|---|---:|---:|---:|---:|---:|---:|"
 )
 for (i in seq_len(nrow(summary_change))) {
@@ -208,21 +208,21 @@ for (i in seq_len(nrow(summary_change))) {
 }
 lines <- c(lines,
   "",
-  "## 四、后续分析数据",
+  "## four, subsequent analysis data",
   "",
-  "可直接读取：",
+  "directly readable: ",
   "",
-  "`output/07_血液指标/analysis_blood_two_waves_fixedcohort_2026-09-19.rds`",
+  "`output/07_blood_biomarkers/analysis_blood_two_waves_fixedcohort_2026-09-19.rds`",
   "",
-  "下一阶段可做：",
-  "1. PLT、WBC、CRP 的连续值、四分位和异常值处理；",
-  "2. 基线 2011 指标预测 2020 新发受损和十年认知变化；",
-  "3. 2011→2015 变化量预测后续认知变化；",
-  "4. 校正年龄、性别、教育、城乡、基线认知和体重/炎症相关协变量；",
-  "5. 完成敏感性分析后再进入主论文 Table 5/Figure 6。"
+  "next stage can analyze: ",
+  "1. PLT, WBC, CRP continuous values of, quartiles and outlier handling; ",
+  "2. baseline 2011 biomarkers predict 2020 incident impairment and ten year cognitive change; ",
+  "3. 2011→2015 biomarker change predicts subsequent cognitive change; ",
+  "4. adjust for age, sex, education, urban or rural, baseline cognition and body weight/inflammation related covariates; ",
+  "5. complete sensitivity analyses before inclusion in main manuscript Table 5/Figure 6."
 )
 writeLines(lines, file.path(out_dir, "blood_two_wave_report_2026-09-19.md"), useBytes = TRUE)
 
-cat("完成：", file.path(out_dir, "blood_two_wave_report_2026-09-19.md"), "\n")
+cat("complete: ", file.path(out_dir, "blood_two_wave_report_2026-09-19.md"), "\n")
 print(overlap)
 print(summary_change)

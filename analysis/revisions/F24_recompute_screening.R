@@ -5,8 +5,8 @@ invisible(Sys.setlocale('LC_CTYPE','Chinese_China.utf8'))
 suppressPackageStartupMessages({library(data.table); library(pROC)})
 args <- commandArgs(trailingOnly=TRUE)
 root <- if(length(args)) args[1] else stop('Provide project directory')
-src <- file.path(root, '_核查', '脚本'); out <- file.path(root, '_核查', '输出')
-archive <- file.path(root, '_核查', '历史归档', 'F24_筛查指标修正前_2026-10-15', '输出')
+src <- file.path(root, '_audit', 'scripts'); out <- file.path(root, '_audit', 'output')
+archive <- file.path(root, '_audit', 'historical_archive', 'F24_before_screening_metric_correction_2026_10_15', 'output')
 dir.create(archive, recursive=TRUE, showWarnings=FALSE)
 
 # Reuse only the already-reviewed preparation expressions; suppress report/file I/O.
@@ -31,41 +31,41 @@ ratio <- function(a,b) if(b==0) NA_real_ else a/b
 confusion <- function(y,pos) {
   stopifnot(length(y)==length(pos), !anyNA(y), !anyNA(pos), all(y %in% 0:1))
   tp<-sum(pos & y==1); fp<-sum(pos & y==0); tn<-sum(!pos & y==0); fn<-sum(!pos & y==1)
-  data.table(n=length(y), 事件=sum(y), 检出人数=sum(pos),
-    实际筛查比例=100*mean(pos), TP=tp, FP=fp, TN=tn, FN=fn,
-    灵敏度=100*ratio(tp,tp+fn), 特异度=100*ratio(tn,tn+fp),
-    阳性预测值=100*ratio(tp,tp+fp), 阴性预测值=100*ratio(tn,tn+fn))
+  data.table(n=length(y), events=sum(y), cases_detected=sum(pos),
+    actual_screening_fraction=100*mean(pos), TP=tp, FP=fp, TN=tn, FN=fn,
+    sensitivity=100*ratio(tp,tp+fn), specificity=100*ratio(tn,tn+fp),
+    positive_predictive_value=100*ratio(tp,tp+fp), negative_predictive_value=100*ratio(tn,tn+fn))
 }
 # Known 2x2 example plus empty-positive/negative edge cases.
 test <- confusion(c(1,1,1,0,0,0,0),c(TRUE,TRUE,FALSE,TRUE,FALSE,FALSE,FALSE))
 stopifnot(test$TP==2,test$FP==1,test$TN==3,test$FN==1,
-          abs(test$特异度-75)<1e-10,abs(test$阴性预测值-75)<1e-10,
-          is.na(confusion(c(0,1),c(FALSE,FALSE))$阳性预测值),
-          is.na(confusion(c(0,1),c(TRUE,TRUE))$阴性预测值))
+          abs(test$specificity-75)<1e-10,abs(test$negative_predictive_value-75)<1e-10,
+          is.na(confusion(c(0,1),c(FALSE,FALSE))$positive_predictive_value),
+          is.na(confusion(c(0,1),c(TRUE,TRUE))$negative_predictive_value))
 test2<-confusion(c(1,1,1,1,0,0,0,0),c(TRUE,TRUE,FALSE,FALSE,TRUE,FALSE,FALSE,FALSE))
-stopifnot(test2$特异度==75,test2$阴性预测值==60)
+stopifnot(test2$specificity==75,test2$negative_predictive_value==60)
 
 rows<-list()
 add <- function(source, cohort, outcome, model, y, s, fr=NA_real_, low=NULL, fixed=NULL) {
   stopifnot(length(y)==length(s), !anyNA(s), all(is.finite(s)))
-  if(!is.null(fixed)) { th<-fixed; pos<-s>=th; label<-'固定切点'; strategy<-'固定分数阈值，全部同分者纳入' }
+  if(!is.null(fixed)) { th<-fixed; pos<-s>=th; label<-'fixed cutoff'; strategy<-'fixed score threshold, include all ties' }
   else if(is.na(fr)) {
     best<-as.data.frame(coords(roc(y,s,quiet=TRUE,direction='<'),'best',best.method='youden',ret=c('threshold','sensitivity','specificity')))
     best<-best[which.max(best$specificity),,drop=FALSE]
-    th<-best$threshold; pos<-s>=th; label<-'约登最优'; strategy<-'同一样本表观约登最优；并列时取特异度最高者'
+    th<-best$threshold; pos<-s>=th; label<-'optimal Youden cutoff'; strategy<-'apparent optimal Youden cutoff in same sample; choose highest specificity if tied'
   } else {
     th<-sort(s,decreasing=TRUE)[max(1L,floor(fr*length(s)))]; pos<-s>=th
-    label<-paste0(fr*100,'%'); strategy<-'按目标比例取分数切点；全部同分者纳入'
+    label<-paste0(fr*100,'%'); strategy<-'score cutoff for target fraction; include all ties'
   }
-  z<-cbind(data.table(来源=source,队列或窗口=cohort,结局定义=outcome,模型=model,
-    目标筛查比例=label,阈值=th,阳性规则='评分>=阈值',同分处理=strategy),confusion(y,pos))
-  if(is.na(fr) && is.null(fixed)) stopifnot(abs(z$灵敏度/100-best$sensitivity)<1e-10,abs(z$特异度/100-best$specificity)<1e-10)
+  z<-cbind(data.table(source=source,cohort_or_window=cohort,outcome_definition=outcome,model=model,
+    target_screening_fraction=label,threshold=th,positive_rule='score>=threshold',tie_handling=strategy),confusion(y,pos))
+  if(is.na(fr) && is.null(fixed)) stopifnot(abs(z$sensitivity/100-best$sensitivity)<1e-10,abs(z$specificity/100-best$specificity)<1e-10)
   if(!is.null(low)) {
     known<-pos & !is.na(low); baseline_low<-sum(pos & low==1,na.rm=TRUE)
     incident<-sum(pos & y==1 & low==0,na.rm=TRUE)
-    z[, `:=`(阳性且基线状态可知人数=sum(known),阳性中基线已低分人数=baseline_low,
-      检出者中基线已低分占比=100*ratio(baseline_low,sum(known)),
-      新发真事件数=incident,每检出1例新发需筛人数=ratio(length(y),incident))]
+    z[, `:=`(screen_positive_participants_with_known_baseline_status=sum(known),screen_positive_participants_already_low_scoring_at_baseline=baseline_low,
+      fraction_already_low_scoring_at_baseline_among_detected_cases=100*ratio(baseline_low,sum(known)),
+      true_incident_events=incident,per_detected_1_incident_case_number_needed_to_screen=ratio(length(y),incident))]
   }
   rows[[length(rows)+1L]]<<-z
 }
@@ -75,36 +75,36 @@ d<-as.data.table(readRDS('C:/y03tmp/tmp/F22_d.rds'))
 d1<-copy(d[mem15>=cutoff]); d1[,event:=as.integer(mem18<cutoff)]
 d2<-copy(d[mem15>4]); d2[,event:=as.integer(mem18<=4)]
 stopifnot(nrow(d1)==6436,sum(d1$event)==1116,nrow(d2)==5872,sum(d2$event)==1157)
-arms<-c(score_us='本研究三项评分卡',score_bdsi='BDSI（现有映射）',lp_tu='Tu2026（现有重建）')
+arms<-c(score_us='our three item scorecard',score_bdsi='BDSI(existing mapping)',lp_tu='Tu2026(existing reconstruction)')
 for(v in names(arms)) for(fr in c(.1,.2,.3,NA_real_))
-  add('F14','CHARLS 2015→2018','教育分层',arms[[v]],d1$event,d1[[v]],fr)
-for(lab in c('T1教育分层','T2固定≤4')) {
-  x<-if(lab=='T1教育分层') d1 else d2
+  add('F14','CHARLS 2015→2018','education strata',arms[[v]],d1$event,d1[[v]],fr)
+for(lab in c('T1 education strata','T2 fixed≤4')) {
+  x<-if(lab=='T1 education strata') d1 else d2
   for(v in names(arms)) add('F22','CHARLS 2015→2018',lab,arms[[v]],x$event,x[[v]],.3)
 }
 
 # F15 preserves the original common-complete-case requirement, including ADL.
-e15<-prefix_env('F15.R','## ---------------- 4. 样本流程')
+e15<-prefix_env('F15.R','## ---------------- 4. sample flow')
 for(nm in c('w1','w2')) {
   x<-get(nm,envir=e15); x<-x[e15$core(x)]
   stopifnot(nrow(x)==if(nm=='w1')11753 else 12460)
   for(fr in c(.05,.1,.2,.3,NA_real_)) add('F15',if(nm=='w1')'CHARLS 2011→2015' else 'CHARLS 2015→2018',
-    '教育分层','本研究三项评分卡',x$event,x$score,fr,x$low0)
+    'education strata','our three item scorecard',x$event,x$score,fr,x$low0)
 }
 
 for(task in c('F16','F19')) {
-  ee<-if(task=='F16') prefix_env('F16_analysis.R','say("切点核对') else prefix_env('F19.R','say("阈值：')
+  ee<-if(task=='F16') prefix_env('F16_analysis.R','say("cutoff verification') else prefix_env('F19.R','say("threshold: ')
   for(co in ee$CO) {
     x<-ee$D[[co]][!is.na(mem_fu)]
     stopifnot(nrow(x)==c(HRS=16345,ELSA=7529,SHARE=31650)[[co]])
     for(fr in if(task=='F16') c(.1,.2,.3,NA_real_) else c(.1,.2,.3))
-      add(task,co,if(task=='F16')paste0('队列特异≤',unique(x$cut_int)) else '固定≤4',
-        '本研究三项评分卡',x$event,x$score,fr,x$low0)
+      add(task,co,if(task=='F16')paste0('cohort specific≤',unique(x$cut_int)) else 'fixed≤4',
+        'our three item scorecard',x$event,x$score,fr,x$low0)
   }
 }
 
 # F03: reproduce the two existing integer score definitions; no bootstrap rerun.
-e3<-prefix_env('F03_headtohead.R','## ---------------- A：冻结模型时段验证')
+e3<-prefix_env('F03_headtohead.R','## ---------------- A: temporal validation of frozen model')
 for(nm in names(e3$defs)) {
   def<-e3$defs[[nm]]; x<-copy(e3$m[mem18>def$k18]); x[,event:=as.integer(mem20<=def$k20)]
   b<-coef(e3$fit_new(x)); terms<-c(age5=5*b[['age18']],eduP=b[['edu_groupPrimary school']],
@@ -112,33 +112,33 @@ for(nm in names(e3$defs)) {
   pts<-round(10*terms/max(abs(terms))); edu<-as.integer(x$edu_group)
   old<-2*pmax(floor((x$age18-45)/5),0)+c(0,-2,-7,-10)[edu]+3*x$dep
   new<-pts[['age5']]*pmax(floor((x$age18-45)/5),0)+c(0,pts[['eduP']],pts[['eduM']],pts[['eduH']])[edu]+pts[['dep']]*x$dep
-  add('F03','CHARLS 2018→2020',def$lab,'旧整数权重',x$event,old,fixed=5)
-  add('F03','CHARLS 2018→2020',def$lab,'原分析重估整数权重',x$event,new,fixed=5)
+  add('F03','CHARLS 2018→2020',def$lab,'old integer weights',x$event,old,fixed=5)
+  add('F03','CHARLS 2018→2020',def$lab,'original analysis reestimated integer weights',x$event,new,fixed=5)
 }
 all<-rbindlist(rows,fill=TRUE)
-stopifnot(nrow(all)==53,all$TP+all$FP==all$检出人数,all$TP+all$FN==all$事件,
+stopifnot(nrow(all)==53,all$TP+all$FP==all$cases_detected,all$TP+all$FN==all$events,
           all$TP+all$FP+all$TN+all$FN==all$n)
 # Verify the untouched operating quantities against the old exported results.
 files<-c(F14='F14_operating.csv',F22='F22_operating.csv',F15='F15_screening.csv',F16='F16_screening.csv',F19='F19_screening.csv')
-metrics<-c('实际筛查比例','灵敏度','特异度','阳性预测值','阴性预测值','检出者中基线已低分占比','每检出1例新发需筛人数')
+metrics<-c('actual_screening_fraction','sensitivity','specificity','positive_predictive_value','negative_predictive_value','fraction_already_low_scoring_at_baseline_among_detected_cases','per_detected_1_incident_case_number_needed_to_screen')
 for(task in names(files)) {
   path<-file.path(out,files[[task]]); backup<-file.path(archive,files[[task]])
   if(!file.exists(backup)) stopifnot(file.copy(path,backup))
-  prior<-fread(backup,encoding='UTF-8'); now<-copy(all[来源==task])
-  stopifnot(nrow(prior)==nrow(now),all(abs(prior$灵敏度-round(now$灵敏度,1))<1e-8))
-  ppv<-if('阳性者事件率'%in%names(prior)) prior$阳性者事件率 else prior$阳性预测值
-  stopifnot(all(abs(ppv-round(now$阳性预测值,1))<1e-8))
-  if('检出人数'%in%names(prior)) stopifnot(identical(as.integer(prior$检出人数),as.integer(now$检出人数)))
-  now[,旧表特异度:=prior$特异度]
-  now[,特异度修正差值:=round(round(特异度,1)-旧表特异度,1)]
-  for(col in intersect(metrics,names(now))) set(now,j=col,value=round(now[[col]],if(col=='实际筛查比例')2 else 1))
+  prior<-fread(backup,encoding='UTF-8'); now<-copy(all[source==task])
+  stopifnot(nrow(prior)==nrow(now),all(abs(prior$sensitivity-round(now$sensitivity,1))<1e-8))
+  ppv<-if('event_rate_among_screen_positives'%in%names(prior)) prior$event_rate_among_screen_positives else prior$positive_predictive_value
+  stopifnot(all(abs(ppv-round(now$positive_predictive_value,1))<1e-8))
+  if('cases_detected'%in%names(prior)) stopifnot(identical(as.integer(prior$cases_detected),as.integer(now$cases_detected)))
+  now[,old_table_specificity:=prior$specificity]
+  now[,specificity_correction_difference:=round(round(specificity,1)-old_table_specificity,1)]
+  for(col in intersect(metrics,names(now))) set(now,j=col,value=round(now[[col]],if(col=='actual_screening_fraction')2 else 1))
   fwrite(now,path,bom=TRUE)
 }
-fwrite(all,file.path(out,'F24_筛查指标完整核对.csv'),bom=TRUE)
-fwrite(all[来源=='F03'],file.path(out,'F03_screening_corrected.csv'),bom=TRUE)
+fwrite(all,file.path(out,'F24_complete_screening_metric_audit.csv'),bom=TRUE)
+fwrite(all[source=='F03'],file.path(out,'F03_screening_corrected.csv'),bom=TRUE)
 cat('PASS: 53 operating points; confusion-matrix identities; original sensitivity/PPV/selected counts reproduced.\n')
-print(all[来源=='F22',.(结局定义,模型,n,检出人数,实际筛查比例,灵敏度,特异度,阳性预测值,阴性预测值)])
-print(all[来源=='F19' & 目标筛查比例=='20%',.(队列或窗口,n,检出人数,实际筛查比例,灵敏度,特异度,阳性预测值,阴性预测值)])
+print(all[source=='F22',.(outcome_definition,model,n,cases_detected,actual_screening_fraction,sensitivity,specificity,positive_predictive_value,negative_predictive_value)])
+print(all[source=='F19' & target_screening_fraction=='20%',.(cohort_or_window,n,cases_detected,actual_screening_fraction,sensitivity,specificity,positive_predictive_value,negative_predictive_value)])
 # All modified source scripts must remain syntactically valid.
 for(f in c('F03_headtohead.R','F14_bdsi_vs_ours_vs_tu.R','F15.R','F16_analysis.R','F19.R','F22b.R')) parse(file.path(src,f),encoding='UTF-8')
 # Execute only patched screening blocks, with file writers disabled, then compare
@@ -149,11 +149,11 @@ check_block <- function(file,start,end,e,object,task) {
   stopifnot(!is.na(lo),!is.na(hi),hi>lo)
   e$fwrite<-function(...) invisible(NULL); e$say<-function(...) invisible(NULL); e$pt<-e$say
   eval(parse(text=lines[lo:(hi-1)]),e)
-  z<-get(object,envir=e); ref<-all[来源==task]
-  if(any(abs(z$阴性预测值-round(ref$阴性预测值,1))>1e-8)) print(data.table(task=task,row=seq_len(nrow(z)),script=z$阴性预测值,independent=round(ref$阴性预测值,1)))
-  stopifnot(nrow(z)==nrow(ref),all(abs(z$特异度-round(ref$特异度,1))<1e-8),
-    all(abs(z$阴性预测值-round(ref$阴性预测值,1))<1e-8),
-    all(abs(z$实际筛查比例-round(ref$实际筛查比例,2))<1e-8))
+  z<-get(object,envir=e); ref<-all[source==task]
+  if(any(abs(z$negative_predictive_value-round(ref$negative_predictive_value,1))>1e-8)) print(data.table(task=task,row=seq_len(nrow(z)),script=z$negative_predictive_value,independent=round(ref$negative_predictive_value,1)))
+  stopifnot(nrow(z)==nrow(ref),all(abs(z$specificity-round(ref$specificity,1))<1e-8),
+    all(abs(z$negative_predictive_value-round(ref$negative_predictive_value,1))<1e-8),
+    all(abs(z$actual_screening_fraction-round(ref$actual_screening_fraction,2))<1e-8))
 }
 e14<-new.env(parent=globalenv()); e14$d<-d1
 check_block('F14_bdsi_vs_ours_vs_tu.R','## ---------------- 7.','## ---------------- 8.',e14,'op','F14')
@@ -162,9 +162,9 @@ check_block('F22b.R','say("\\n===== 4.','close(con)',e22,'op','F22')
 e15$W1L<-'2011→2015'; e15$W2L<-'2015→2018'
 e15$getc<-eval(quote(function(nm) { x<-get(nm,envir=environment(getc)); x[core(x)] }),e15)
 check_block('F15.R','## ---------------- 8.','## ---------------- 9.',e15,'scrT','F15')
-e16<-prefix_env('F16_analysis.R','say("切点核对')
+e16<-prefix_env('F16_analysis.R','say("cutoff verification')
 check_block('F16_analysis.R','scr <- rbindlist','strat_auc <-',e16,'scr','F16')
-e19<-prefix_env('F19.R','say("阈值：')
+e19<-prefix_env('F19.R','say("threshold: ')
 check_block('F19.R','scr <- rbindlist','say("\\n========== 5.',e19,'scr','F19')
 cat('PASS: six patched R scripts parsed; five patched screening blocks match the independent 2x2 calculations.\n')
 cat('No AUC/bootstrap rerun; F03 original refit reproduced only to recover its integer scores.\n')

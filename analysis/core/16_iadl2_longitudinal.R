@@ -1,17 +1,17 @@
 # ============================================================================
-# 16_iadl2_longitudinal.R —— IADL（两条目版 iadl2）纵向模型补充分析
-# 目的：为 A02/A07 决策「IADL 是否纳入主模型」提供纵向证据
-# 设定：与 T06（13_weighted_longitudinal.R）一致——单暴露 + age + female + edu_group；
-#       主敏感性：十年变化模型额外校正基线 ms10（回归均值/地板效应）
-# 生成：2026-09-26
-# 输出：
-#   output/04_纵向队列/iadl2_longitudinal_models_2026-09-26.csv
-#   output/04_纵向队列/iadl2_longitudinal_summary_2026-09-26.md
+# 16_iadl2_longitudinal.R —— IADL(two item version iadl2)supplementary longitudinal model analysis
+# purpose: is A02/A07 decision[IADL included in primary model]provides longitudinal evidence
+# specification: and T06(13_weighted_longitudinal.R)consistent——single exposure + age + female + edu_group; 
+#       primary sensitivity: ten year change model additionally adjusts baseline ms10(regression to the mean/floor effect)
+# generate: 2026-09-26
+# output: 
+#   output/04_longitudinal_cohort/iadl2_longitudinal_models_2026-09-26.csv
+#   output/04_longitudinal_cohort/iadl2_longitudinal_summary_2026-09-26.md
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(survival); library(survey) })
-P <- "D:/BaiduSyncdisk/科研/徐中豪"; OUT <- file.path(P, "output", "04_纵向队列")
+P <- "D:/BaiduSyncdisk/research/Xu_Zhonghao"; OUT <- file.path(P, "output", "04_longitudinal_cohort")
 
 coh <- readRDS(file.path(OUT, "cohort_change_2026-09-13.rds"))$cohort
 inc <- readRDS(file.path(OUT, "interval_incidence_events_2026-09-20.rds"))
@@ -75,16 +75,16 @@ write.csv(res, file.path(OUT, "iadl2_longitudinal_models_2026-09-26.csv"), row.n
 desc <- d_chg %>% group_by(iadl2) %>%
   summarise(n = n(), base = round(mean(ms10_2011, na.rm = TRUE), 2), follow = round(mean(ms10_2020, na.rm = TRUE), 2),
             delta = round(mean(delta, na.rm = TRUE), 2), dec1 = sprintf("%.1f%%", 100*mean((ms10_2020 - ms10_2011) <= -1, na.rm = TRUE)), .groups = "drop")
-md <- c("# IADL（两条目版 iadl2）纵向补充分析（2026-09-26）", "",
-  "> 目的：为「IADL 是否纳入主模型」提供纵向证据（此前仅有横断面 OR 1.53–2.41）。",
-  "> 设定：与 T06 一致（单暴露 + 年龄 + 性别 + 教育）；加权＝2011 基线权重 + PSU=communityID。", "",
-  "## 一、描述性（按 2011 年 iadl2）", "", paste(capture.output(print(as.data.frame(desc), row.names = FALSE)), collapse = "\n"), "",
-  "## 二、模型结果（加权 / 未加权）", "", paste(capture.output(print(res, row.names = FALSE)), collapse = "\n"), "",
-  "## 三、解读", "",
-  "- 二分类结局：OR 1.32（0.99–1.75，加权）/ 1.28（1.00–1.65，未加权）；HR 1.19（1.00–1.41）/ 1.17（1.00–1.38）——**均为临界**，弱于 ADL（OR 1.49、HR 1.20）。",
-  "- 连续变化：不校正基线时 β=+0.57（看似「下降更少」），**校正基线 ms10 后 β≈−0.01（p=0.93）** → 该「效应」是**基线差异导致的回归均值假象**（IADL 受限组基线 ms10 仅 6.90 vs 8.19）。",
-  "- 结论建议：**IADL 不进入主评分**；作为补充/次要分析报告（横断面证据 + 临界纵向关联 + 基线差异显著）。",
-  "", "*脚本：code/16_iadl2_longitudinal.R；数据：cohort_change_2026-09-13.rds + interval_incidence_events_2026-09-20.rds*")
+md <- c("# IADL(two item version iadl2)supplementary longitudinal analysis(2026-09-26)", "",
+  "> purpose: is[IADL included in primary model]provides longitudinal evidence(previously cross sectional only OR 1.53–2.41).",
+  "> specification: and T06 consistent(single exposure + age + sex + education); weighted＝2011 baseline weights + PSU=communityID.", "",
+  "## one, descriptive(by 2011 year iadl2)", "", paste(capture.output(print(as.data.frame(desc), row.names = FALSE)), collapse = "\n"), "",
+  "## two, model results(weighted / unweighted)", "", paste(capture.output(print(res, row.names = FALSE)), collapse = "\n"), "",
+  "## three, interpretation", "",
+  "- binary outcome: OR 1.32(0.99–1.75, weighted)/ 1.28(1.00–1.65, unweighted); HR 1.19(1.00–1.41)/ 1.17(1.00–1.38)——**both borderline**, weaker than ADL(OR 1.49, HR 1.20).",
+  "- continuous change: without baseline adjustment β=+0.57(apparently[less decline]), **baseline adjustment ms10 after β≈−0.01(p=0.93)** → this[effect]yes**regression to mean artifact from baseline differences**(IADL baseline in limited group ms10 only 6.90 vs 8.19).",
+  "- suggested conclusion: **IADL exclude from primary score**; as supplementary/report as secondary analysis(cross sectional evidence + borderline longitudinal association + substantial baseline differences).",
+  "", "*scripts: code/16_iadl2_longitudinal.R; data: cohort_change_2026-09-13.rds + interval_incidence_events_2026-09-20.rds*")
 writeLines(md, file.path(OUT, "iadl2_longitudinal_summary_2026-09-26.md"), useBytes = TRUE)
-cat("\n==== 结果 ====\n"); print(res, row.names = FALSE)
-cat("\n==== 描述性 ====\n"); print(as.data.frame(desc), row.names = FALSE)
+cat("\n==== results ====\n"); print(res, row.names = FALSE)
+cat("\n==== descriptive ====\n"); print(as.data.frame(desc), row.names = FALSE)

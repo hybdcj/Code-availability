@@ -1,11 +1,11 @@
 # ============================================================================
-# 24_external_validation.R —— A12：外部队列正式外部验证
-# 主分析 S0 = baseline_all_mean_sd；正式敏感性 S1 = complete_fu_mean_sd、
-# S2 = fixed_charls_le4。
-# 队列：HRS（w10→w12）、ELSA（w4→w6）、SHARE（w4→w6）
-# 模型：CHARLS 固定模型（年龄 + 教育 + 抑郁 + ADL），不重新拟合。
-# 输出：output/11_外部验证/
-# 生成：2026-09-26
+# 24_external_validation.R —— A12: formal external cohort validation
+# primary analysis S0 = baseline_all_mean_sd; formal sensitivity S1 = complete_fu_mean_sd, 
+# S2 = fixed_charls_le4.
+# cohort: HRS(w10→w12), ELSA(w4→w6), SHARE(w4→w6)
+# model: CHARLS fixed model(age + education + depression + ADL), without refitting.
+# output: output/11_external_validation/
+# generate: 2026-09-26
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 .libPaths(c("D:/R/library", .libPaths()))
@@ -13,16 +13,16 @@ suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(pROC); library(Hmisc); library(knitr)
 })
 
-set.seed(20260926)  # cluster bootstrap 可复现
+set.seed(20260926)  # cluster bootstrap reproducible
 
-P    <- "D:/BaiduSyncdisk/科研/徐中豪"
+P    <- "D:/BaiduSyncdisk/research/Xu_Zhonghao"
 A11  <- file.path(P, "external_data")
-OUT  <- file.path(P, "output", "11_外部验证")
-FIG  <- file.path(P, "output", "09_图表")
+OUT  <- file.path(P, "output", "11_external_validation")
+FIG  <- file.path(P, "output", "09_figures_and_tables")
 dir.create(OUT, recursive = TRUE, showWarnings = FALSE)
 dir.create(FIG, recursive = TRUE, showWarnings = FALSE)
 
-a07 <- readRDS(file.path(P, "output/10_筛查指数/screening_index_memory_v3_2026-09-26.rds"))
+a07 <- readRDS(file.path(P, "output/10_screening_index/screening_index_memory_v3_2026-09-26.rds"))
 model_u <- a07$model_u
 model_levels <- model_u$xlevels$edu_group
 
@@ -34,9 +34,9 @@ scenario_lab <- c(
   fixed_charls_le4     = "S2_fixed_le4"
 )
 scenario_name <- c(
-  baseline_all_mean_sd = "S0 主分析：baseline-all mean−1SD",
-  complete_fu_mean_sd  = "S1 敏感性：complete-fu mean−1SD",
-  fixed_charls_le4     = "S2 敏感性：固定 CHARLS ≤4"
+  baseline_all_mean_sd = "S0 primary analysis: baseline-all mean−1SD",
+  complete_fu_mean_sd  = "S1 sensitivity: complete-fu mean−1SD",
+  fixed_charls_le4     = "S2 sensitivity: fixed CHARLS ≤4"
 )
 cohort_cols <- c(HRS = "#1f77b4", ELSA = "#2ca02c", SHARE = "#d62728")
 
@@ -89,15 +89,15 @@ evaluate_one <- function(d, cohort, cd, model) {
   a_score_full <- auc_ci(d$event, d$score)
   a_score_same <- auc_ci(m$event, m$score)
   cal <- calibration_metrics(m$event, m$p_hat)
-  strata_full <- d %>% mutate(stratum = cut(score, c(-Inf,-3,4,Inf), labels = c("低","中","高"))) %>%
+  strata_full <- d %>% mutate(stratum = cut(score, c(-Inf,-3,4,Inf), labels = c("low","in","high"))) %>%
     group_by(stratum) %>% summarise(n = n(), events = sum(event), rate = mean(event), .groups = "drop")
-  strata_model <- m %>% mutate(stratum = cut(score, c(-Inf,-3,4,Inf), labels = c("低","中","高"))) %>%
+  strata_model <- m %>% mutate(stratum = cut(score, c(-Inf,-3,4,Inf), labels = c("low","in","high"))) %>%
     group_by(stratum) %>% summarise(n_model = n(), events_model = sum(event),
                                     pred_mean = mean(p_hat), .groups = "drop")
   strata <- full_join(strata_full, strata_model, by = "stratum") %>%
     mutate(oe_model = events_model/(n_model*pred_mean), cohort = cohort, cut_definition = cd) %>%
     relocate(cohort, cut_definition)
-  lo <- strata_full$rate[strata_full$stratum == "低"]; hi <- strata_full$rate[strata_full$stratum == "高"]
+  lo <- strata_full$rate[strata_full$stratum == "low"]; hi <- strata_full$rate[strata_full$stratum == "high"]
   high_low <- if (length(lo) == 1 && length(hi) == 1 && !is.na(lo) && lo > 0) hi/lo else NA_real_
   thr <- do.call(rbind, lapply(c(0.10,0.15,0.20), function(t) {
     pos <- m$p_hat >= t
@@ -144,7 +144,7 @@ evaluate_one <- function(d, cohort, cd, model) {
   list(perf = perf, strata = strata, deciles = dec, thresholds = thr, dca = dca, data = m)
 }
 
-# ---------- 读取三套风险集 ----------
+# ---------- read three risk sets ----------
 risk_sets <- list()
 for (co in cohorts) {
   f <- file.path(A11, co, "analysis", paste0(co, "_sensitivity_risk_sets_2026-09-26.rds"))
@@ -152,7 +152,7 @@ for (co in cohorts) {
   for (cd in cut_defs) risk_sets[[paste(co, cd, sep = "__")]] <- x[[paste(co, cd, sep = "__")]]
 }
 
-# ---------- 主分析：三队列 × S0/S1/S2 ----------
+# ---------- primary analysis: three cohorts × S0/S1/S2 ----------
 all_perf <- list(); all_strata <- list(); all_dec <- list(); all_thr <- list(); all_dca <- list(); all_data <- list()
 for (co in cohorts) {
   for (cd in cut_defs) {
@@ -165,7 +165,7 @@ for (co in cohorts) {
 perf <- bind_rows(all_perf); strata <- bind_rows(all_strata); deciles <- bind_rows(all_dec)
 thresholds <- bind_rows(all_thr); dca <- bind_rows(all_dca)
 
-# ---------- SHARE 国家层面 + cluster bootstrap ----------
+# ---------- SHARE country level + cluster bootstrap ----------
 share_s0 <- add_pred(risk_sets[["SHARE__baseline_all_mean_sd"]], model_u)
 share_ok <- share_s0[!is.na(share_s0$p_hat), ]
 share_country <- bind_rows(lapply(sort(unique(share_ok$country_mod)), function(cc) {
@@ -199,7 +199,7 @@ share_boot_s0 <- bind_rows(
   cluster_boot_share_metric(share_s0, "auc_score", B = 1000)
 ); share_boot_s0$cut_definition <- "baseline_all_mean_sd"
 share_s1 <- add_pred(risk_sets[["SHARE__complete_fu_mean_sd"]], model_u)
-share_boot_s1 <- share_boot_s0; share_boot_s1$cut_definition <- "complete_fu_mean_sd"  # SHARE S1 与 S0 风险集/事件相同
+share_boot_s1 <- share_boot_s0; share_boot_s1$cut_definition <- "complete_fu_mean_sd"  # SHARE S1 and S0 risk set/identical events
 share_s2 <- add_pred(risk_sets[["SHARE__fixed_charls_le4"]], model_u)
 share_boot_s2 <- bind_rows(
   cluster_boot_share_metric(share_s2, "auc_model", B = 1000),
@@ -208,7 +208,7 @@ share_boot_s2 <- bind_rows(
 share_boot <- bind_rows(share_boot_s0, share_boot_s1, share_boot_s2) %>%
   relocate(cut_definition, metric, orig_auc, boot_mean, boot_low, boot_high, B)
 
-# ---------- 跨队列随机效应 meta（DL，logit AUC） ----------
+# ---------- cross cohort random effects meta(DL, logit AUC) ----------
 meta_dl <- function(auc, low, high, labels) {
   yi <- qlogis(auc); sei <- (qlogis(high) - qlogis(low)) / (2*1.96)
   wi <- 1/sei^2
@@ -233,7 +233,7 @@ for (cd in cut_defs) {
     } else {
       a <- sub$auc_score_full; lo <- sub$auc_score_full_low; hi <- sub$auc_score_full_high
     }
-    # SHARE 用与当前切点定义匹配的 cluster bootstrap CI
+    # SHARE use matching current cutoff definition cluster bootstrap CI
     sb_metric <- ifelse(metric == "model", "auc_model", "auc_score")
     sb <- share_boot[share_boot$cut_definition == cd & share_boot$metric == sb_metric, ]
     if (nrow(sb) != 1) stop("SHARE cluster bootstrap CI not found for ", cd, "/", sb_metric)
@@ -248,8 +248,8 @@ for (cd in cut_defs) {
 }
 meta <- bind_rows(meta_rows)
 
-# ---------- 额外敏感性 ----------
-# 1) 抑郁切点：HRS/ELSA CES-D-8 ≥3；SHARE EURO-D ≥5
+# ---------- additional sensitivity ----------
+# 1) depression cutoff: HRS/ELSA CES-D-8 ≥3; SHARE EURO-D ≥5
 extra_dep <- bind_rows(lapply(cohorts, function(co) {
   d <- add_pred(risk_sets[[paste(co, "baseline_all_mean_sd", sep = "__")]], model_u)
   d$dep_alt <- as.integer(d$dep_raw >= ifelse(co == "SHARE", 5, 3))
@@ -274,7 +274,7 @@ extra_score_alt <- bind_rows(lapply(cohorts, function(co) {
              n = nrow(d), events = sum(d$event), auc_score_alt = a["auc"],
              auc_low = a["low"], auc_high = a["high"])
 }))
-# 3) ELSA age 90 顶码：排除 age=90
+# 3) ELSA age 90 top coding: exclude age=90
 extra_elsa_age <- local({
   d <- add_pred(risk_sets[["ELSA__baseline_all_mean_sd"]], model_u)
   d2 <- d[d$age < 90, , drop = FALSE]
@@ -288,18 +288,18 @@ extra_elsa_age <- local({
              cal_slope = cal["slope"], cal_intercept = cal["intercept"], brier = cal["brier"])
 })
 
-# ---------- 保存 CSV / RDS ----------
-write.csv(perf, file.path(OUT, "A12_主结果_三队列_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(strata, file.path(OUT, "A12_风险分层_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(deciles, file.path(OUT, "A12_校准十分位_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(thresholds, file.path(OUT, "A12_阈值表现_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+# ---------- save CSV / RDS ----------
+write.csv(perf, file.path(OUT, "A12_primary_results_three_cohorts_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(strata, file.path(OUT, "A12_risk_stratification_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(deciles, file.path(OUT, "A12_calibration_deciles_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(thresholds, file.path(OUT, "A12_threshold_performance_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(dca, file.path(OUT, "A12_DCA_S0_S1_S2.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(share_country, file.path(OUT, "A12_SHARE国家层面.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(share_boot, file.path(OUT, "A12_SHARE国家聚类bootstrap.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(meta, file.path(OUT, "A12_跨队列随机效应.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(extra_dep, file.path(OUT, "A12_敏感性_抑郁切点.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(extra_score_alt, file.path(OUT, "A12_敏感性_score_alt.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(extra_elsa_age, file.path(OUT, "A12_敏感性_ELSA_age90.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(share_country, file.path(OUT, "A12_SHARE_country_level.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(share_boot, file.path(OUT, "A12_SHARE_country_clustering_bootstrap.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(meta, file.path(OUT, "A12_cross_cohort_random_effects.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(extra_dep, file.path(OUT, "A12_sensitivity_depression_cutoff.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(extra_score_alt, file.path(OUT, "A12_sensitivity_score_alt.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(extra_elsa_age, file.path(OUT, "A12_sensitivity_ELSA_age90.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 saveRDS(list(perf = perf, strata = strata, deciles = deciles, thresholds = thresholds, dca = dca,
              share_country = share_country, share_boot = share_boot, meta = meta,
              extra_dep = extra_dep, extra_score_alt = extra_score_alt, extra_elsa_age = extra_elsa_age),
@@ -307,15 +307,15 @@ saveRDS(list(perf = perf, strata = strata, deciles = deciles, thresholds = thres
 
 writeLines(capture.output(sessionInfo()), file.path(OUT, "A12_sessionInfo_2026-09-26.txt"), useBytes = TRUE)
 
-cat("\nA12 主结果（S0）：\n")
+cat("\nA12 primary results(S0): \n")
 print(perf %>% filter(cut_definition == "baseline_all_mean_sd") %>%
         select(cohort, n_model, events_model, auc_model, auc_model_low, auc_model_high,
                auc_score_full, cal_slope, cal_intercept, brier) %>%
         mutate(across(where(is.numeric), ~round(.x, 4))) %>% as.data.frame())
-cat("\nA12 敏感性（S1/S2）AUC：\n")
+cat("\nA12 sensitivity(S1/S2)AUC: \n")
 print(perf %>% select(cohort, scenario, auc_model, auc_score_full) %>%
         mutate(across(where(is.numeric), ~round(.x, 4))) %>% as.data.frame())
-cat("\nA12 跨队列随机效应：\n")
+cat("\nA12 cross cohort random effects: \n")
 print(meta %>% select(cut_definition, metric, pooled_auc, pooled_low, pooled_high, I2, p_Q) %>%
         mutate(across(where(is.numeric), ~round(.x, 4))) %>% as.data.frame())
-cat("\n已写入：", OUT, "\n")
+cat("\n written: ", OUT, "\n")

@@ -1,42 +1,42 @@
 # ============================================================================
-# 11_interval_incidence.R —— T04：固定队列区间新发认知受损与 95%CI
-# 版本：v1.0（2026-09-20）
-# 输入：output/04_纵向队列/cohort_change_2026-09-13.rds
-# 输出：
-#   output/04_纵向队列/interval_incidence_2026-09-20.csv
-#   output/04_纵向队列/interval_incidence_summary_2026-09-20.csv
-#   output/04_纵向队列/interval_incidence_events_2026-09-20.rds
-#   output/04_纵向队列/interval_incidence_2026-09-20.md
+# 11_interval_incidence.R —— T04: fixed cohort interval incident cognitive impairment and 95%CI
+# version: v1.0(2026-09-20)
+# input: output/04_longitudinal_cohort/cohort_change_2026-09-13.rds
+# output: 
+#   output/04_longitudinal_cohort/interval_incidence_2026-09-20.csv
+#   output/04_longitudinal_cohort/interval_incidence_summary_2026-09-20.csv
+#   output/04_longitudinal_cohort/interval_incidence_events_2026-09-20.rds
+#   output/04_longitudinal_cohort/interval_incidence_2026-09-20.md
 #
-# 口径：
-#   结局：impaired_fixed（2011 年教育分层固定切点，五波均使用同一阈值）
-#   随访：2011→2013→2015→2018→2020，对应 2、2、3、2 年，总随访 9 年
+# definition: 
+#   outcome: impaired_fixed(2011 year education specific fixed cutoff, same threshold at all five waves)
+#   follow up: 2011→2013→2015→2018→2020, corresponding 2, 2, 3, 2 year, total follow up 9 year
 #
-#   分析 A（primary first episode）：
-#       2011 认知正常者中，首次在任一随访波出现 impaired_fixed=1。
-#       首次事件后退出风险集（即使之后恢复为正常，也不再次进入）。
+#   analysis A(primary first episode): 
+#       2011 among cognitively unimpaired participants, first occurrence at any follow up wave impaired_fixed=1.
+#       exit risk set after first event(even if subsequently returning to normal, do not reenter).
 #
-#   分析 B（confirmed first episode，敏感性）：
-#       基线正常者中，首次出现连续两波均受损。事件时间记为连续受损的第一波；
-#       2020 年因没有下一波确认，不产生 new confirmed event。
+#   analysis B(confirmed first episode, sensitivity): 
+#       among unimpaired baseline participants, first impairment at two consecutive waves.event time is the first of consecutive impaired waves; 
+#       2020 year lacks next wave confirmation, does not produce new confirmed event.
 #
-#   分析 C（current-state interval incidence）：
-#       每个区间开始时当前未受损者，到区间结束时受损；
-#       允许既往受损后恢复者再次进入区间风险集，因此不是首次发病率。
+#   analysis C(current-state interval incidence): 
+#       currently unimpaired at interval start, impaired at interval end; 
+#       previously impaired participants who recover may reenter interval risk set, therefore not first onset incidence.
 #
-#   分析 D（endpoint 2020）：
-#       2011 正常者到 2020 时仍评估为受损。该指标减少了一过性跨阈值事件的干扰。
+#   analysis D(endpoint 2020): 
+#       2011 unimpaired participants to 2020 still impaired at assessment.reduces transient threshold crossing effects.
 #
-#   点估计：精确二项 95%CI（Clopper–Pearson）。
-#   人年率：事件时间未知，主估计将事件置于区间中点；仅供近似，明确标注。
+#   point estimate: exact binomial 95%CI(Clopper–Pearson).
+#   person year rate: unknown event time, primary estimate places event at interval midpoint; approximation only, label explicitly.
 # ============================================================================
 
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 if (dir.exists("D:/R/library")) .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages({ library(dplyr); library(tidyr) })
 
-P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/科研/徐中豪")
-OUT <- file.path(P, "output", "04_纵向队列")
+P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/research/Xu_Zhonghao")
+OUT <- file.path(P, "output", "04_longitudinal_cohort")
 if (!dir.exists(OUT)) dir.create(OUT, recursive = TRUE)
 
 obj <- readRDS(file.path(OUT, "cohort_change_2026-09-13.rds"))
@@ -44,7 +44,7 @@ coh <- obj$cohort
 
 stopifnot(all(c("KEY", "year", "impaired_fixed") %in% names(coh)))
 stopifnot(setequal(sort(unique(coh$year)), c(2011, 2013, 2015, 2018, 2020)))
-if (anyNA(coh$impaired_fixed)) stop("impaired_fixed 存在缺失，需先核查")
+if (anyNA(coh$impaired_fixed)) stop("impaired_fixed missing values present, audit first")
 
 wide <- coh %>%
   select(KEY, year, impaired_fixed) %>%
@@ -53,7 +53,7 @@ wide <- coh %>%
 
 stopifnot(nrow(wide) == length(unique(coh$KEY)))
 
-# ------------------------- 通用函数 -------------------------
+# ------------------------- general helper functions -------------------------
 binom_ci <- function(events, n) {
   if (is.na(n) || n <= 0) return(c(NA_real_, NA_real_))
   as.numeric(binom.test(events, n)$conf.int)
@@ -68,7 +68,7 @@ fmt_pct <- function(x) ifelse(is.na(x), "—", sprintf("%.1f%%", 100 * x))
 fmt_rate <- function(x) ifelse(is.na(x), "—", sprintf("%.1f", x))
 fmt_ci_pct <- function(lo, hi) ifelse(is.na(lo) | is.na(hi), "—", sprintf("%.1f–%.1f", 100 * lo, 100 * hi))
 fmt_ci_rate <- function(lo, hi) ifelse(is.na(lo) | is.na(hi), "—", sprintf("%.1f–%.1f", lo, hi))
-fmt_int <- function(x) ifelse(is.na(x), "无法确认", format(as.integer(x), big.mark = ",", scientific = FALSE, trim = TRUE))
+fmt_int <- function(x) ifelse(is.na(x), "cannot confirm", format(as.integer(x), big.mark = ",", scientific = FALSE, trim = TRUE))
 
 intervals <- tibble(
   interval = c("2011-2013", "2013-2015", "2015-2018", "2018-2020"),
@@ -78,7 +78,7 @@ intervals <- tibble(
   midpoint_years = c(1, 3, 5.5, 8)
 )
 
-# ------------------------- A. 首次发作 -------------------------
+# ------------------------- A. first onset -------------------------
 base <- wide %>% filter(im2011 == 0) %>% mutate(
   first_index = case_when(
     im2013 == 1 ~ 1L,
@@ -103,7 +103,7 @@ for (i in seq_len(nrow(intervals))) {
   rci <- poisson_ci(events, py)
   first_rows[[i]] <- tibble(
     analysis = "first_episode",
-    analysis_label = "首次发作（首次受损后退出风险集）",
+    analysis_label = "first onset(exit risk set after first impairment)",
     interval = intervals$interval[i],
     start_year = intervals$start_year[i],
     end_year = intervals$end_year[i],
@@ -116,7 +116,7 @@ for (i in seq_len(nrow(intervals))) {
     person_years_midpoint = py,
     rate_per_1000py = 1000 * events / py,
     rate_ci_lower = 1000 * rci[1], rate_ci_upper = 1000 * rci[2],
-    note = "事件时间置于区间中点；首次事件后退出风险集"
+    note = "event time at interval midpoint; exit risk set after first event"
   )
 }
 first_tab <- bind_rows(first_rows)
@@ -126,7 +126,7 @@ first_ci <- t(vapply(seq_len(nrow(first_tab)), function(i) binom_ci(first_tab$cu
 first_tab$cumulative_ci_lower <- first_ci[, 1]
 first_tab$cumulative_ci_upper <- first_ci[, 2]
 
-# ------------------------- B. 连续两波确认的首次发作 -------------------------
+# ------------------------- B. first onset confirmed at two consecutive waves -------------------------
 base <- base %>% mutate(
   confirmed_index = case_when(
     im2013 == 1 & im2015 == 1 ~ 1L,
@@ -140,7 +140,7 @@ confirmed_total <- sum(base$confirmed_event, na.rm = TRUE)
 
 confirmed_rows <- vector("list", nrow(intervals))
 for (i in seq_len(nrow(intervals))) {
-  confirmable <- i < nrow(intervals)   # 2018-2020 需要 2022 波才能确认
+  confirmable <- i < nrow(intervals)   # 2018-2020 required 2022 wave required for confirmation
   if (confirmable) {
     at_risk <- sum(is.na(base$confirmed_index) | base$confirmed_index >= i)
     events <- sum(base$confirmed_index == i, na.rm = TRUE)
@@ -156,7 +156,7 @@ for (i in seq_len(nrow(intervals))) {
   }
   confirmed_rows[[i]] <- tibble(
     analysis = "confirmed_first_episode",
-    analysis_label = "连续两波确认的首次受损（敏感性）",
+    analysis_label = "first impairment confirmed at two consecutive waves(sensitivity)",
     interval = intervals$interval[i],
     start_year = intervals$start_year[i],
     end_year = intervals$end_year[i],
@@ -170,7 +170,7 @@ for (i in seq_len(nrow(intervals))) {
     rate_per_1000py = ifelse(is.na(events), NA_real_, 1000 * events / py),
     rate_ci_lower = ifelse(is.na(events), NA_real_, 1000 * rci[1]),
     rate_ci_upper = ifelse(is.na(events), NA_real_, 1000 * rci[2]),
-    note = if (confirmable) "事件时间记为连续受损的第一波；首次确认后退出风险集" else "无法确认：需要 2022 年下一波数据"
+    note = if (confirmable) "event time is the first of consecutive impaired waves; exit risk set after first confirmed event" else "cannot confirm: required 2022 next wave data in year"
   )
 }
 confirmed_tab <- bind_rows(confirmed_rows)
@@ -180,7 +180,7 @@ confirmed_ci <- t(vapply(seq_len(nrow(confirmed_tab)), function(i) binom_ci(conf
 confirmed_tab$cumulative_ci_lower <- confirmed_ci[, 1]
 confirmed_tab$cumulative_ci_upper <- confirmed_ci[, 2]
 
-# ------------------------- C. 当前状态区间发病 -------------------------
+# ------------------------- C. current status interval incidence -------------------------
 current_rows <- vector("list", nrow(intervals))
 start_vars <- c("im2011", "im2013", "im2015", "im2018")
 end_vars <- c("im2013", "im2015", "im2018", "im2020")
@@ -192,7 +192,7 @@ for (i in seq_len(nrow(intervals))) {
   rci <- poisson_ci(events, py)
   current_rows[[i]] <- tibble(
     analysis = "current_state",
-    analysis_label = "当前状态区间新发（允许既往恢复者再次进入）",
+    analysis_label = "interval incidence of current impairment(previously recovered participants may reenter)",
     interval = intervals$interval[i],
     start_year = intervals$start_year[i],
     end_year = intervals$end_year[i],
@@ -205,16 +205,16 @@ for (i in seq_len(nrow(intervals))) {
     person_years_midpoint = py,
     rate_per_1000py = 1000 * events / py,
     rate_ci_lower = 1000 * rci[1], rate_ci_upper = 1000 * rci[2],
-    note = "分母为区间开始时当前未受损者，不是首次事件风险集"
+    note = "denominator is currently unimpaired at interval start, not a first event risk set"
   )
 }
 current_tab <- bind_rows(current_rows)
 
-# ------------------------- D. 2020 终点 -------------------------
+# ------------------------- D. 2020 endpoint -------------------------
 endpoint_ci <- binom_ci(endpoint_events, baseline_n)
 endpoint_row <- tibble(
   analysis = "endpoint_2020",
-  analysis_label = "2020 测评时受损（2011 正常者）",
+  analysis_label = "2020 impaired at assessment(2011 unimpaired participants)",
   interval = "2011-2020",
   start_year = 2011,
   end_year = 2020,
@@ -228,10 +228,10 @@ endpoint_row <- tibble(
   cumulative_ci_lower = endpoint_ci[1], cumulative_ci_upper = endpoint_ci[2],
   person_years_midpoint = NA_real_,
   rate_per_1000py = NA_real_, rate_ci_lower = NA_real_, rate_ci_upper = NA_real_,
-  note = "2020 年测评时为受损状态，减少对既往一过性事件的误读"
+  note = "2020 impaired at assessment in year, reduces misinterpretation of previous transient events"
 )
 
-# 首次发作和连续确认的总随访结果，补充到 interval table
+# total follow up results for first onset and consecutive confirmation, append to interval table
 first_py_total <- sum(first_tab$person_years_midpoint, na.rm = TRUE)
 first_rate_ci <- poisson_ci(first_events_total, first_py_total)
 first_total_ci <- binom_ci(first_events_total, baseline_n)
@@ -247,7 +247,7 @@ first_total_row <- first_tab %>% slice_tail(n = 1) %>%
          person_years_midpoint = first_py_total,
          rate_per_1000py = 1000 * first_events_total / first_py_total,
          rate_ci_lower = 1000 * first_rate_ci[1], rate_ci_upper = 1000 * first_rate_ci[2],
-         note = "九年内至少一次受损；即使之后恢复也计为事件；事件时间区间中点近似")
+         note = "at least one impairment within nine years; event counted despite subsequent recovery; event time approximated by interval midpoint")
 
 confirmed_py_total <- sum(confirmed_tab$person_years_midpoint, na.rm = TRUE)
 confirmed_rate_ci <- poisson_ci(confirmed_total, confirmed_py_total)
@@ -264,7 +264,7 @@ confirmed_total_row <- confirmed_tab %>% slice_tail(n = 1) %>%
          person_years_midpoint = confirmed_py_total,
          rate_per_1000py = 1000 * confirmed_total / confirmed_py_total,
          rate_ci_lower = 1000 * confirmed_rate_ci[1], rate_ci_upper = 1000 * confirmed_rate_ci[2],
-         note = "连续两波均受损；总随访确认事件数")
+         note = "impaired at two consecutive waves; total confirmed events during follow up")
 
 results <- bind_rows(first_tab, first_total_row, confirmed_tab, confirmed_total_row, current_tab, endpoint_row) %>%
   mutate(
@@ -281,10 +281,10 @@ results <- bind_rows(first_tab, first_total_row, confirmed_tab, confirmed_total_
          cumulative_ci_lower_pct, cumulative_ci_upper_pct,
          person_years_midpoint, rate_per_1000py, rate_ci_lower, rate_ci_upper, note)
 
-# ------------------------- 汇总表 -------------------------
+# ------------------------- summary table -------------------------
 summary_tab <- tibble(
   outcome = c("first_episode_any_wave", "confirmed_two_consecutive_waves", "endpoint_2020", "recovered_by_2020_after_first_event"),
-  outcome_label = c("九年内至少一次受损", "连续两波确认受损", "2020 测评时受损", "首次事件后 2020 恢复为正常"),
+  outcome_label = c("at least one impairment within nine years", "impairment confirmed at two consecutive waves", "2020 impaired at assessment", "after first event 2020 recovered to unimpaired"),
   baseline_n = c(baseline_n, baseline_n, baseline_n, baseline_n),
   events = c(first_events_total, confirmed_total, endpoint_events,
              sum(base$first_event == 1 & base$endpoint_2020 == 0, na.rm = TRUE)),
@@ -302,14 +302,14 @@ summary_tab <- summary_tab %>% mutate(
   ci_upper_pct = 100 * ci_upper
 )
 
-# ------------------------- 交叉核对 -------------------------
+# ------------------------- cross check -------------------------
 first_check <- first_events_total
 endpoint_check <- endpoint_events
 pre2020_first_events <- sum(base$first_index %in% 1:3, na.rm = TRUE)
 recovered_pre2020 <- sum(base$first_index %in% 1:3 & base$endpoint_2020 == 0, na.rm = TRUE)
-# 与既有队列的事件数核对由独立核验脚本完成，避免硬编码旧队列常量。
+# independent verification script checks event counts against existing cohort, avoid hard coding historical cohort constants.
 
-# ------------------------- 输出 -------------------------
+# ------------------------- output -------------------------
 write.csv(results, file.path(OUT, "interval_incidence_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(summary_tab, file.path(OUT, "interval_incidence_summary_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 saveRDS(list(base = base, wide = wide, intervals = intervals,
@@ -319,86 +319,86 @@ saveRDS(list(base = base, wide = wide, intervals = intervals,
         file.path(OUT, "interval_incidence_events_2026-09-20.rds"))
 
 report <- c(
-  "# T04：固定队列区间新发认知受损（2026-09-20）",
+  "# T04: fixed cohort interval incident cognitive impairment(2026-09-20)",
   "",
-  sprintf("> 数据：`cohort_change_2026-09-13.rds` ｜ 固定队列 n=%d ｜ 2011 基线正常 n=%d", length(unique(obj$cohort$KEY)), baseline_n),
-  "> 结局：2011 年教育分层固定切点下的认知受损（impaired_fixed）",
-  "> 随访：2011→2013→2015→2018→2020，总随访 9 年",
-  "> **关键口径：** 主结局为五波唯一完全可比的 ms10（定向 5 题 + 连续减 7）教育分层固定切点，不是 2020 年单期论文中 0–31 分的 cog_B。",
+  sprintf("> data: `cohort_change_2026-09-13.rds` ｜ fixed cohort n=%d ｜ 2011 unimpaired at baseline n=%d", length(unique(obj$cohort$KEY)), baseline_n),
+  "> outcome: 2011 year education specific fixed cutoff cognitive impairment(impaired_fixed)",
+  "> follow up: 2011→2013→2015→2018→2020, total follow up 9 year",
+  "> **key definitions: ** primary outcome is the only fully comparable five wave measure ms10(orientation 5 questions + serial subtraction of 7)education specific fixed cutoff, is not 2020 in year single wave paper 0–31 points of cog_B.",
   "",
-  "## 一、必须先区分的三个指标",
+  "## one, three measures that must be distinguished",
   "",
-  "| 指标 | 事件数 | 比例 | 95%CI | 含义 |",
+  "| metrics | event count | proportion | 95%CI | meaning |",
   "|---|---:|---:|---:|---|",
-  sprintf("| 九年内至少一次受损（首次发作） | %d | %s | %s | 任一随访波首次出现受损；之后恢复仍算事件 |",
+  sprintf("| at least one impairment within nine years(first onset) | %d | %s | %s | first impairment at any follow up wave; still counts if later recovered |",
           first_events_total, fmt_pct(first_events_total / baseline_n), fmt_ci_pct(binom_ci(first_events_total, baseline_n)[1], binom_ci(first_events_total, baseline_n)[2])),
-  sprintf("| 连续两波确认受损 | %d | %s | %s | 降低一过性跨阈值影响 |",
+  sprintf("| impairment confirmed at two consecutive waves | %d | %s | %s | reduces transient threshold crossing effects |",
           confirmed_total, fmt_pct(confirmed_total / baseline_n), fmt_ci_pct(binom_ci(confirmed_total, baseline_n)[1], binom_ci(confirmed_total, baseline_n)[2])),
-  sprintf("| 2020 测评时受损 | %d | %s | %s | 2020 年测评时为受损状态 |",
+  sprintf("| 2020 impaired at assessment | %d | %s | %s | 2020 impaired at assessment in year |",
           endpoint_events, fmt_pct(endpoint_events / baseline_n), fmt_ci_pct(endpoint_ci[1], endpoint_ci[2])),
-  sprintf("| 首次发作后 2020 已恢复 | %d | %s | %s | 提示单次阈值跨越存在明显波动 |",
+  sprintf("| after first onset 2020 recovered | %d | %s | %s | indicates substantial fluctuation in single threshold crossings |",
           sum(base$first_event == 1 & base$endpoint_2020 == 0, na.rm = TRUE),
           fmt_pct(mean(base$first_event == 1 & base$endpoint_2020 == 0, na.rm = TRUE)),
           fmt_ci_pct(binom_ci(sum(base$first_event == 1 & base$endpoint_2020 == 0, na.rm = TRUE), baseline_n)[1],
                      binom_ci(sum(base$first_event == 1 & base$endpoint_2020 == 0, na.rm = TRUE), baseline_n)[2])),
   "",
-  sprintf("**结论：不能把 %s 直接解释为“十年持续发病率”。** %s 是九年内至少一次跨过受损阈值；%s 是 2020 年测评时处于受损状态；连续两波确认的比例更低。", fmt_pct(first_events_total / baseline_n), fmt_pct(first_events_total / baseline_n), fmt_pct(endpoint_events / baseline_n)),
+  sprintf("**conclusion: must not interpret %s directly as“ten year persistent incidence”.** %s is at least one impairment threshold crossing within nine years; %s yes 2020 impaired at assessment in year; two wave confirmed proportion is lower.", fmt_pct(first_events_total / baseline_n), fmt_pct(first_events_total / baseline_n), fmt_pct(endpoint_events / baseline_n)),
   "",
-  sprintf("> 在 2020 年前已发生首次事件的 %d 人中，到 2020 有 %d 人恢复为正常（%s）；该比例受不同随访时长影响，仅作描述性提示。", pre2020_first_events, recovered_pre2020, fmt_pct(recovered_pre2020 / pre2020_first_events)),
+  sprintf("> at 2020 with first event before year %d among participants, to 2020 present %d participants recovered to unimpaired(%s); affected by varying follow up lengths, descriptive indication only.", pre2020_first_events, recovered_pre2020, fmt_pct(recovered_pre2020 / pre2020_first_events)),
   "",
-  "## 二、首次发作的区间条件发病",
+  "## two, interval conditional incidence of first onset",
   "",
-  "| 区间 | 期初风险人数 | 新发事件 | 条件发病比例 | 95%CI | 累积事件 | 累积发病 |",
+  "| interval | number at risk at interval start | incident events | conditional incidence proportion | 95%CI | cumulative events | cumulative incidence |",
   "|---|---:|---:|---:|---:|---:|---:|",
   paste0("| ", first_tab$interval, " | ", first_tab$at_risk_n, " | ", first_tab$events, " | ",
          fmt_pct(first_tab$incidence), " | ", fmt_ci_pct(first_tab$ci_lower, first_tab$ci_upper), " | ",
          first_tab$cumulative_events, " | ", fmt_pct(first_tab$cumulative_incidence), " |"),
   "",
-  "## 三、当前状态区间新发（敏感性口径）",
+  "## three, interval incidence of current impairment(sensitivity definition)",
   "",
-  "| 区间 | 期初当前正常人数 | 区间内新发 | 比例 | 95%CI |",
+  "| interval | currently unimpaired count at interval start | new events within interval | proportion | 95%CI |",
   "|---|---:|---:|---:|---:|",
   paste0("| ", current_tab$interval, " | ", current_tab$at_risk_n, " | ", current_tab$events, " | ",
          fmt_pct(current_tab$incidence), " | ", fmt_ci_pct(current_tab$ci_lower, current_tab$ci_upper), " |"),
   "",
-  "> 该口径允许既往受损后恢复者再次进入风险集，不是首次事件发病率，不作为主结局。",
+  "> definition permits recovered participants to reenter risk set, not first event incidence, not a primary outcome.",
   "",
-  "## 四、连续两波确认的首次受损",
+  "## four, first impairment confirmed at two consecutive waves",
   "",
-  "| 区间 | 期初风险人数 | 确认事件 | 条件比例 | 95%CI | 累积确认事件 |",
+  "| interval | number at risk at interval start | confirmed events | conditional proportion | 95%CI | cumulative confirmed events |",
   "|---|---:|---:|---:|---:|---:|",
   paste0("| ", confirmed_tab$interval, " | ", fmt_int(confirmed_tab$at_risk_n), " | ", fmt_int(confirmed_tab$events), " | ",
          fmt_pct(confirmed_tab$incidence), " | ", fmt_ci_pct(confirmed_tab$ci_lower, confirmed_tab$ci_upper), " | ",
          confirmed_tab$cumulative_events, " |"),
   "",
-  "## 五、方法学提醒",
+  "## five, methodological note",
   "",
-  "1. 事件发生时间只知道位于两次随访之间，区间人年率的点估计将事件置于区间中点，仅为近似。",
-  "2. 首次发作后即退出风险集，即使后续恢复为正常，也不再次计入首次事件。",
-  "3. 固定队列要求五波 ms10 均可计分，因此排除了失访、死亡和该指标缺失者，存在持续参与和幸存者偏倚。",
-  "4. 本报告为未加权结果；基线权重敏感性见 T06，失访选择 IPW 见 T07。",
-  "5. 2011 固定切点与逐波自身切点可能给出不同分类，逐波切点敏感性需另行计算。",
+  "1. event known only to occur between follow up visits, person year point estimate places event at interval midpoint, approximate only.",
+  "2. exit risk set immediately after first onset, even with subsequent recovery, not counted again for first events.",
+  "3. fixed cohort requires all five waves ms10 all scorable, therefore excludes attrition, deaths and missing measurements, subject to continued participation and survivor bias.",
+  "4. report presents unweighted results; baseline weight sensitivity in T06, attrition selection IPW see T07.",
+  "5. 2011 fixed and wave specific cutoffs may classify differently, wave specific cutoff sensitivity requires separate calculation.",
   "",
-  "## 六、输出文件",
+  "## six, output file",
   "",
   "- `interval_incidence_2026-09-20.csv`",
   "- `interval_incidence_summary_2026-09-20.csv`",
   "- `interval_incidence_events_2026-09-20.rds`",
   "- `interval_incidence_2026-09-20.md`",
   "",
-  sprintf("*生成时间：%s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+  sprintf("*generation time: %s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
 )
 
 writeLines(report, file.path(OUT, "interval_incidence_2026-09-20.md"), useBytes = TRUE)
 
-cat("\n========== T04 区间发病分析完成 ==========\n")
-cat("2011 基线正常人数：", baseline_n, "\n", sep = "")
-cat("九年内至少一次受损：", first_events_total, " (", fmt_pct(first_events_total / baseline_n), ")\n", sep = "")
-cat("连续两波确认受损：", confirmed_total, " (", fmt_pct(confirmed_total / baseline_n), ")\n", sep = "")
-cat("2020 测评时受损：", endpoint_events, " (", fmt_pct(endpoint_events / baseline_n), ")\n", sep = "")
-cat("\n首次发作区间表：\n")
+cat("\n========== T04 interval incidence analysis complete ==========\n")
+cat("2011 number unimpaired at baseline: ", baseline_n, "\n", sep = "")
+cat("at least one impairment within nine years: ", first_events_total, " (", fmt_pct(first_events_total / baseline_n), ")\n", sep = "")
+cat("impairment confirmed at two consecutive waves: ", confirmed_total, " (", fmt_pct(confirmed_total / baseline_n), ")\n", sep = "")
+cat("2020 impaired at assessment: ", endpoint_events, " (", fmt_pct(endpoint_events / baseline_n), ")\n", sep = "")
+cat("\n first onset interval table: \n")
 print(as.data.frame(first_tab %>% select(interval, at_risk_n, events, incidence, ci_lower, ci_upper, cumulative_incidence)), row.names = FALSE)
-cat("\n已写：\n", file.path(OUT, "interval_incidence_2026-09-20.csv"), "\n",
+cat("\n written: \n", file.path(OUT, "interval_incidence_2026-09-20.csv"), "\n",
     file.path(OUT, "interval_incidence_summary_2026-09-20.csv"), "\n",
     file.path(OUT, "interval_incidence_events_2026-09-20.rds"), "\n",
     file.path(OUT, "interval_incidence_2026-09-20.md"), "\n", sep = "")

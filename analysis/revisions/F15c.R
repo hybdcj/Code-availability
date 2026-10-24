@@ -1,8 +1,8 @@
-# F32（2026-10-16）：以下保留旧共同完整样本的计算以便追溯；CHARLS整数评分自身样本已改用同目录 F32_全人群入组与分母修正.R。不要仅删除lp限制后直接运行旧脚本，因为下游连续模型、分母和表头也需分别处理。
+# F32(2026-10-16): Retain the historical common complete sample calculation below for traceability; CHARLS The integer score now uses its own sample from the same directory F32_correct_population_eligibility_and_denominators.R.Do not merely remove the lp restriction and run the old script, because the downstream continuous model, denominators and headings require separate handling.
 # ============================================================================
-# F15c：把 F15 的"全人口口径"换成**主稿原有阈值（全局 ≤4）**，与第一轮 R02
-#        的宽样本（n=8,296、连续模型 AUC 0.726）对齐，解决口径不可比问题
-# 窗口：CHARLS 2011 -> 2015；结局：2015 记忆分 <= 4（基线 > 4）
+# F15c: take F15 of"full population definition"replace with**original main manuscript threshold(global ≤4)**, and first round R02
+#        broader sample of(n=8,296, continuous model AUC 0.726)align, resolve incompatible definitions
+# window: CHARLS 2011 -> 2015; outcome: 2015 memory score <= 4(baseline > 4)
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 suppressPackageStartupMessages({ library(data.table); library(pROC) })
@@ -16,7 +16,7 @@ B <- c(intercept = -4.19524508778947, age = 0.0492039250378111,
        eduPri = -0.290105771000328, eduMid = -0.994711800202235,
        eduHigh = -1.43588388035287, dep = 0.412166484954086, adl = -0.0110119344848014)
 LV <- c("Less than primary", "Primary school", "Middle school", "High school or above")
-K <- 4L   # 主稿阈值：2011 五波固定队列 mean-1SD = 4.7647 -> <= 4
+K <- 4L   # main manuscript threshold: 2011 five wave fixed cohort mean-1SD = 4.7647 -> <= 4
 
 w <- as.data.table(readRDS(file.path(TMP, "waves_cognition.rds")))
 g <- w[year %in% c(2011, 2015), .(ID = IDn, year = as.numeric(year),
@@ -40,55 +40,55 @@ d[, low0 := as.integer(mem0 <= K)]
 ok <- !is.na(d$score) & !is.na(d$lp) & !is.na(d$event) & !is.na(d$age0) & d$age0 >= 45
 d <- d[ok]
 
-say("阈值：全局 <= ", K, "（主稿口径；源自 2011 五波固定队列 mean-1SD = 4.7647）")
-say("样本流程：两波 ID 可匹配 ", nrow(merge(a, b, by = "ID")),
-    " -> 年龄/评分/lp/结局齐全且 >=45 岁：", nrow(d))
-say("A11/R02 记录：2011 年 >=45 岁且基线 >4 者 10,422 人；2015 记忆可测 8,371；")
-say("             四变量完整 8,296 人（= 宽样本）；其中事件 1,889（22.8%）")
+say("threshold: global <= ", K, "(main manuscript definition; derived from 2011 five wave fixed cohort mean-1SD = 4.7647)")
+say("sample flow: two waves ID matchable ", nrow(merge(a, b, by = "ID")),
+    " -> age/score/lp/complete outcomes and >=45 years old: ", nrow(d))
+say("A11/R02 record: 2011 year >=45 years old and baseline >4 participants 10,422 participants; 2015 measurable memory 8,371; ")
+say("             complete four variable data 8,296 participants(= broader sample); including events 1,889(22.8%)")
 
 arm <- function(x, lab) {
   if (nrow(x) < 30 || length(unique(x$event)) < 2) return(NULL)
   r1 <- roc(x$event, x$score, quiet = TRUE, direction = "<")
   r2 <- roc(x$event, x$phat, quiet = TRUE, direction = "<")
   c1 <- as.numeric(ci.auc(r1)); c2 <- as.numeric(ci.auc(r2))
-  data.table(口径 = lab, n = nrow(x), 事件 = sum(x$event),
-             事件率 = round(100 * mean(x$event), 2),
-             AUC_评分卡 = round(c1[2], 4), 卡低 = round(c1[1], 4), 卡高 = round(c1[3], 4),
-             AUC_连续 = round(c2[2], 4), 连低 = round(c2[1], 4), 连高 = round(c2[3], 4))
+  data.table(definition = lab, n = nrow(x), events = sum(x$event),
+             event_rate = round(100 * mean(x$event), 2),
+             AUC_scorecard = round(c1[2], 4), scorecard_low = round(c1[1], 4), scorecard_high = round(c1[3], 4),
+             AUC_continuous = round(c2[2], 4), continuous_low = round(c2[1], 4), continuous_high = round(c2[3], 4))
 }
 res <- rbindlist(list(
-  arm(d, "U 全人口（不限基线记忆）"),
-  arm(d[!is.na(mem0) & mem0 > K], "N 基线未受损（主稿宽样本口径）"),
-  arm(d[!is.na(mem0) & mem0 <= K], "I 基线已受损"),
-  arm(d[is.na(mem0)], "M 基线记忆缺失")), fill = TRUE)
-say("\n========== 全局 <=4 阈值下各口径 ==========")
+  arm(d, "U full population(no baseline memory restriction)"),
+  arm(d[!is.na(mem0) & mem0 > K], "N unimpaired at baseline(main manuscript broader sample definition)"),
+  arm(d[!is.na(mem0) & mem0 <= K], "I impaired at baseline"),
+  arm(d[is.na(mem0)], "M missing baseline memory")), fill = TRUE)
+say("\n========== global <=4 definitions under threshold ==========")
 pt(res)
 fwrite(res, file.path(OUT, "F15c_auc_globalcut.csv"), bom = TRUE)
 
-say("\n========== 与第一轮 R02 宽样本的对照 ==========")
+say("\n========== and first round R02 broader sample comparison ==========")
 pt(data.table(
-  指标 = c("n", "事件", "事件率", "连续模型 AUC", "评分卡 AUC"),
-  R02宽样本 = c("8,296", "1,889", "22.8%", "0.726", "未报告"),
-  本次N口径 = c(format(nrow(d[!is.na(mem0) & mem0 > K]), big.mark = ","),
+  metrics = c("n", "events", "event_rate", "continuous model AUC", "scorecard AUC"),
+  R02_broader_sample = c("8,296", "1,889", "22.8%", "0.726", "not reported"),
+  this_release_N_definition = c(format(nrow(d[!is.na(mem0) & mem0 > K]), big.mark = ","),
                  format(sum(d[!is.na(mem0) & mem0 > K]$event), big.mark = ","),
                  paste0(round(100 * mean(d[!is.na(mem0) & mem0 > K]$event), 1), "%"),
-                 as.character(res[口径 == "N 基线未受损（主稿宽样本口径）"]$AUC_连续),
-                 as.character(res[口径 == "N 基线未受损（主稿宽样本口径）"]$AUC_评分卡))))
+                 as.character(res[definition == "N unimpaired at baseline(main manuscript broader sample definition)"]$AUC_continuous),
+                 as.character(res[definition == "N unimpaired at baseline(main manuscript broader sample definition)"]$AUC_scorecard))))
 
-say("\n========== 放宽阶梯（2011 -> 2015 窗口，全局 <=4 阈值）==========")
+say("\n========== sequential relaxation(2011 -> 2015 window, global <=4 threshold)==========")
 uq <- d[!is.na(mem0)]
-say("① 主稿原开发样本（五波共同题集完整）：4,441 人 / 658 事件 / 表观 AUC 0.702")
-say("② 宽样本（取消五波要求，基线 >4）：", nrow(uq[mem0 > K]), " 人 / ",
-    sum(uq[mem0 > K]$event), " 事件 / AUC 0.726（R02 记录 8,296 / 1,889）")
-say("③ 全人口（再取消基线 >4 要求，此为 F15 的口径）：", nrow(d), " 人 / ",
-    sum(d$event), " 事件")
-say("④ 全人口 + 不限基线记忆：" , nrow(d), " 人 / ", sum(d$event), " 事件")
+say("① original manuscript development sample(complete five wave common items): 4,441 participants / 658 events / apparent AUC 0.702")
+say("② broader sample(remove five wave requirement, baseline >4): ", nrow(uq[mem0 > K]), " participants / ",
+    sum(uq[mem0 > K]$event), " events / AUC 0.726(R02 record 8,296 / 1,889)")
+say("③ full population(then remove baseline >4 require, this is F15 definition of): ", nrow(d), " participants / ",
+    sum(d$event), " events")
+say("④ full population + no baseline memory restriction: " , nrow(d), " participants / ", sum(d$event), " events")
 
-say("\n========== 分解：全人口事件里基线已低分的占比 ==========")
+say("\n========== decomposition: baseline low scorers as fraction of full population events ==========")
 dd <- d[!is.na(mem0)]
-say("事件中基线 <=4 者占比 = ", round(100 * mean(dd$low0[dd$event == 1]), 1), "%")
-say("其中：基线已低分者事件率 = ", round(100 * mean(dd[low0 == 1]$event), 1),
-    "%｜基线未受损者事件率 = ", round(100 * mean(dd[low0 == 0]$event), 1), "%")
+say("baseline among events <=4 participant fraction = ", round(100 * mean(dd$low0[dd$event == 1]), 1), "%")
+say("of which: event rate among baseline low scorers = ", round(100 * mean(dd[low0 == 1]$event), 1),
+    "%｜event rate among baseline unimpaired participants = ", round(100 * mean(dd[low0 == 0]$event), 1), "%")
 
 close(con)
-cat("\n完成 ->", file.path(OUT, "F15c_report.txt"), "\n")
+cat("\n complete ->", file.path(OUT, "F15c_report.txt"), "\n")

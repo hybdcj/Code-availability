@@ -1,14 +1,14 @@
 # ============================================================
-# 血液统计第三步：PLT/WBC/CRP 与十年认知受损/变化关联
-# 主分析：
-#   1) 2011 PLT/WBC/logCRP 预测 2020 新发认知受损
-#   2) 2011 PLT/WBC/logCRP 与 2011→2020 认知变化
-#   3) 2011→2015 血液变化预测 2015→2020 认知变化（探索）
-# 说明：
-#   - 连续暴露按 1 SD 标准化；
-#   - CRP 使用 log(CRP+1)，四分位仍按原始值排序；
-#   - 未加权为主，血液权重用于后续敏感性；
-#   - 极端值采用 1%/99% winsorization 敏感性分析。
+# blood analysis step three: PLT/WBC/CRP and ten year cognitive impairment/association with change
+# primary analysis: 
+#   1) 2011 PLT/WBC/logCRP prediction 2020 incident cognitive impairment
+#   2) 2011 PLT/WBC/logCRP and 2011→2020 cognitive change
+#   3) 2011→2015 blood biomarker change predicts 2015→2020 cognitive change(exploration)
+# notes: 
+#   - continuous exposures scaled by 1 SD standardization; 
+#   - CRP use log(CRP+1), quartiles still ranked by raw values; 
+#   - primarily unweighted, blood weights reserved for later sensitivity analyses; 
+#   - extreme values handled using 1%/99% winsorization sensitivity analysis.
 # ============================================================
 
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
@@ -19,9 +19,9 @@ suppressPackageStartupMessages({
   library(openxlsx)
 })
 
-in_analysis <- "output/07_血液指标/analysis_blood_two_waves_fixedcohort_2026-09-19.rds"
-in_cohort   <- "output/04_纵向队列/cohort_change_2026-09-13.rds"
-out_dir     <- "output/07_血液指标"
+in_analysis <- "output/07_blood_biomarkers/analysis_blood_two_waves_fixedcohort_2026-09-19.rds"
+in_cohort   <- "output/04_longitudinal_cohort/cohort_change_2026-09-13.rds"
+out_dir     <- "output/07_blood_biomarkers"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 norm_id <- function(x) {
@@ -79,7 +79,7 @@ d <- a %>% left_join(base_cov, by = "KEY") %>%
     q_dcrp = factor(q_dcrp, levels = 1:4, labels = paste0("Q", 1:4))
   )
 
-# 1%/99% winsorization 敏感性变量
+# 1%/99% winsorization sensitivity variables
 wins <- function(x) {
   lo <- quantile(x, 0.01, na.rm = TRUE, names = FALSE)
   hi <- quantile(x, 0.99, na.rm = TRUE, names = FALSE)
@@ -96,7 +96,7 @@ d <- d %>%
     z_logcrp_2011_w = as.numeric(scale(logcrp_2011_w))
   )
 
-# 基础模型与Fully-adjusted模型
+# basic model and Fully-adjusted model
 base_covars <- c("age2011", "female", "edu_group", "rural", "y2011")
 full_covars <- c(base_covars, "cesd10", "adl", "hibp", "diab", "heart", "stroke", "lung", "kidney", "dyslip", "sleep_h", "pain_any")
 
@@ -145,13 +145,13 @@ extract_lm <- function(fit, exposure_label, model_label, outcome_label) {
 fit_logit <- function(data, exposure, covars) {
   vars <- c("incident_2020", exposure, covars)
   dd <- data %>% select(all_of(vars)) %>% drop_na()
-  # 新发分析限定基线未受损
+  # incidence analysis restricted to baseline unimpaired
   dd <- dd[data$impaired_2011[match(rownames(dd), rownames(data))] == 0, , drop = FALSE]
   f <- as.formula(paste("incident_2020 ~", paste(c(exposure, covars), collapse = " + ")))
   list(fit = glm(f, data = dd, family = binomial()), data = dd)
 }
 
-# 新发模型：更稳妥地单独处理基线受损限制
+# incidence model: handle baseline impairment restriction separately
 make_incident_data <- function(data, exposure, covars) {
   vars <- unique(c("incident_2020", "impaired_2011", exposure, covars))
   data %>% select(all_of(vars)) %>% filter(impaired_2011 == 0) %>% drop_na()
@@ -218,7 +218,7 @@ main_quart <- bind_rows(
   }))
 )
 
-# 变化暴露：以 2015 认知为基线，检验 2011→2015 血液变化
+# change exposures: using 2015 cognition as baseline, test 2011→2015 blood biomarker change
 change_exposures <- c("z_dplt", "z_dwbc", "z_dlogcrp")
 change_labels <- c("delta PLT per 1 SD", "delta WBC per 1 SD", "delta log(CRP+1) per 1 SD")
 change_covars <- c("age2011", "female", "edu_group", "rural", "y2015")
@@ -232,7 +232,7 @@ change_models <- bind_rows(lapply(seq_along(change_exposures), function(i) {
   )
 }))
 
-# 极端值敏感性：1%/99% winsorization
+# outlier sensitivity: 1%/99% winsorization
 sens_cont <- bind_rows(lapply(seq_along(cont_exposures), function(i) {
   ex <- c("z_plt_2011_w", "z_wbc_2011_w", "z_logcrp_2011_w")[i]
   lab <- cont_labels[i]
@@ -244,7 +244,7 @@ sens_cont <- bind_rows(lapply(seq_along(cont_exposures), function(i) {
   )
 }))
 
-# FDR：主连续暴露，按结局/模型家族分别校正
+# FDR: primary continuous exposure, by outcome/adjust separately within model families
 add_fdr <- function(df) {
   out <- df
   out$q <- NA_real_
@@ -259,7 +259,7 @@ main_cont <- add_fdr(main_cont)
 change_models <- add_fdr(change_models)
 sens_cont <- add_fdr(sens_cont)
 
-# 输出 CSV（数据标签全部使用 ASCII，避免中文编码问题）
+# output CSV(all data labels use ASCII, avoid Chinese encoding problems)
 write.csv(main_cont, file.path(out_dir, "blood_main_continuous_2026-09-19.csv"), row.names = FALSE)
 write.csv(main_quart, file.path(out_dir, "blood_main_quartile_2026-09-19.csv"), row.names = FALSE)
 write.csv(change_models, file.path(out_dir, "blood_change_models_2026-09-19.csv"), row.names = FALSE)
@@ -269,41 +269,41 @@ fmt <- function(x, d = 3) formatC(x, format = "f", digits = d)
 ci_or <- function(r) paste0(fmt(r$OR), " (", fmt(r$lower), "-", fmt(r$upper), ")")
 ci_b <- function(r) paste0(fmt(r$beta), " (", fmt(r$lower, 3), "-", fmt(r$upper, 3), ")")
 exposure_cn <- c(
-  "PLT per 1 SD" = "PLT（每1 SD）",
-  "WBC per 1 SD" = "WBC（每1 SD）",
-  "log(CRP+1) per 1 SD" = "log(CRP+1)（每1 SD）",
-  "PLT quartile" = "PLT四分位",
-  "WBC quartile" = "WBC四分位",
-  "CRP quartile" = "CRP四分位",
-  "delta PLT per 1 SD" = "ΔPLT（每1 SD）",
-  "delta WBC per 1 SD" = "ΔWBC（每1 SD）",
-  "delta log(CRP+1) per 1 SD" = "Δlog(CRP+1)（每1 SD）"
+  "PLT per 1 SD" = "PLT(per 1 SD)",
+  "WBC per 1 SD" = "WBC(per 1 SD)",
+  "log(CRP+1) per 1 SD" = "log(CRP+1)(per 1 SD)",
+  "PLT quartile" = "PLT quartiles",
+  "WBC quartile" = "WBC quartiles",
+  "CRP quartile" = "CRP quartiles",
+  "delta PLT per 1 SD" = "ΔPLT(per 1 SD)",
+  "delta WBC per 1 SD" = "ΔWBC(per 1 SD)",
+  "delta log(CRP+1) per 1 SD" = "Δlog(CRP+1)(per 1 SD)"
 )
 tr <- function(x) ifelse(x %in% names(exposure_cn), unname(exposure_cn[x]), x)
 
 lines <- c(
-  "# 血液统计第三步 · PLT/WBC/CRP 与认知结局",
+  "# blood analysis step three · PLT/WBC/CRP and cognitive outcomes",
   "",
-  "> 生成日期：2026-09-20（年龄口径修正后重算）",
+  "> generation date: 2026-09-20(recompute after correcting age eligibility)",
   "",
-  "## 一、主模型结果摘要",
+  "## one, primary model results summary",
   "",
-  "### 2020 新发认知受损（Base-adjusted）",
+  "### 2020 incident cognitive impairment(Base-adjusted)",
   "",
-  "| 暴露 | OR (95%CI) | p | q | n |",
+  "| exposure | OR (95%CI) | p | q | n |",
   "|---|---:|---:|---:|---:|"
 )
 tmp <- main_cont %>% filter(outcome == "Incident cognitive impairment 2020", model == "Base-adjusted")
 for (i in seq_len(nrow(tmp))) lines <- c(lines, paste0("| ", tr(tmp$exposure[i]), " | ", ci_or(tmp[i, ]), " | ", fmt(tmp$p[i], 4), " | ", fmt(tmp$q[i], 4), " | ", tmp$n[i], " |"))
-lines <- c(lines, "", "### 2011→2020 认知变化（Base-adjusted）", "", "| 暴露 | β (95%CI) | p | q | n |", "|---|---:|---:|---:|---:|")
+lines <- c(lines, "", "### 2011→2020 cognitive change(Base-adjusted)", "", "| exposure | β (95%CI) | p | q | n |", "|---|---:|---:|---:|---:|")
 tmp <- main_cont %>% filter(outcome == "Cognitive change 2011-2020", model == "Base-adjusted")
 for (i in seq_len(nrow(tmp))) lines <- c(lines, paste0("| ", tr(tmp$exposure[i]), " | ", ci_b(tmp[i, ]), " | ", fmt(tmp$p[i], 4), " | ", fmt(tmp$q[i], 4), " | ", tmp$n[i], " |"))
-lines <- c(lines, "", "### 2011→2015 血液变化 → 2015→2020 认知变化（Base-adjusted）", "", "| 暴露 | β (95%CI) | p | q | n |", "|---|---:|---:|---:|---:|")
+lines <- c(lines, "", "### 2011→2015 blood biomarker change → 2015→2020 cognitive change(Base-adjusted)", "", "| exposure | β (95%CI) | p | q | n |", "|---|---:|---:|---:|---:|")
 tmp <- change_models %>% filter(model == "Base-adjusted")
 for (i in seq_len(nrow(tmp))) lines <- c(lines, paste0("| ", tr(tmp$exposure[i]), " | ", ci_b(tmp[i, ]), " | ", fmt(tmp$p[i], 4), " | ", fmt(tmp$q[i], 4), " | ", tmp$n[i], " |"))
-lines <- c(lines, "", "## 二、四分位结果", "", "四分位模型见 Excel 的 `Main_quartile`；Q1 为参照。", "", "## 三、敏感性分析", "", "1%/99% winsorization 结果见 `Winsorized`。", "", "## 四、解读边界", "", "- 血液指标为观察性关联，不是因果效应。", "- 血样子样本存在健康参与者/存活者选择，需在论文中披露。", "- Neu/NLR/PLR 不可从 CHARLS 已释放数据计算。", "- 下一步应补：血液权重、纵向缺失、极端值排除方案及与主论文 Table 5/Figure 6 的对接。")
+lines <- c(lines, "", "## two, quartile results", "", "quartile models in Excel of `Main_quartile`; Q1 as reference.", "", "## three, sensitivity analysis", "", "1%/99% winsorization results in `Winsorized`.", "", "## four, interpretation boundaries", "", "- blood biomarkers represent observational associations, not causal effects.", "- blood subsample subject to healthy participant/survivor selection, disclose in manuscript.", "- Neu/NLR/PLR cannot derive from CHARLS released data.", "- next add: blood sample weights, longitudinal missingness, extreme value exclusion and main manuscript Table 5/Figure 6 integration with.")
 writeLines(lines, file.path(out_dir, "blood_analysis_report_2026-09-19.md"), useBytes = TRUE)
 
-cat("完成：blood model CSV outputs\\n")
-cat("主连续模型：\n"); print(main_cont %>% filter(model == "Base-adjusted") %>% select(outcome, exposure, OR, lower, upper, p, q, n))
-cat("变化模型：\n"); print(change_models %>% filter(model == "Base-adjusted") %>% select(exposure, beta, lower, upper, p, q, n))
+cat("complete: blood model CSV outputs\\n")
+cat("primary continuous model: \n"); print(main_cont %>% filter(model == "Base-adjusted") %>% select(outcome, exposure, OR, lower, upper, p, q, n))
+cat("change model: \n"); print(change_models %>% filter(model == "Base-adjusted") %>% select(exposure, beta, lower, upper, p, q, n))

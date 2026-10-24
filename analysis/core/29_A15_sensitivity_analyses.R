@@ -1,14 +1,14 @@
 # ============================================================================
-# 29_A15_sensitivity_analyses.R —— A15：权重、IPW、2018测量差异、切点、缺失分析
-# 依据：SAP v3 §10 敏感性清单、§14 T5/T6、§15–§17（A07–A14 冻结模型）
-# 原则：不改变最终模型、评分表、主切点和外部验证主口径；所有结果仅作敏感性。
-# 输入：
-#   output/02_五波数据与质控/waves_cognition_2026-09-13.rds
-#   output/10_筛查指数/screening_index_memory_v3_2026-09-26.rds
-#   output/11_外部验证/A12_results_2026-09-26.rds
+# 29_A15_sensitivity_analyses.R —— A15: weights, IPW, 2018 measurement differences, cutoff, missingness analysis
+# basis: SAP v3 §10 sensitivity inventory, §14 T5/T6, §15–§17(A07–A14 frozen model)
+# principle: final model unchanged, score table, primary cutoff and primary external validation definition; all results are sensitivity analyses only.
+# input: 
+#   output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds
+#   output/10_screening_index/screening_index_memory_v3_2026-09-26.rds
+#   output/11_external_validation/A12_results_2026-09-26.rds
 #   external_data/{HRS,ELSA,SHARE}/analysis/*_sensitivity_risk_sets_2026-09-26.rds
-# 输出：output/13_A15_敏感性分析/
-# 生成：2026-09-26
+# output: output/13_A15_sensitivity_analysis/
+# generate: 2026-09-26
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 .libPaths(c("D:/R/library", .libPaths()))
@@ -19,14 +19,14 @@ suppressPackageStartupMessages({
 options(survey.lonely.psu = "adjust", stringsAsFactors = FALSE)
 set.seed(20260926)
 
-P <- "D:/BaiduSyncdisk/科研/徐中豪"
-OUT <- file.path(P, "output", "13_A15_敏感性分析")
-FIG <- file.path(P, "output", "09_图表")
+P <- "D:/BaiduSyncdisk/research/Xu_Zhonghao"
+OUT <- file.path(P, "output", "13_A15_sensitivity_analysis")
+FIG <- file.path(P, "output", "09_figures_and_tables")
 dir.create(OUT, recursive = TRUE, showWarnings = FALSE)
 dir.create(FIG, recursive = TRUE, showWarnings = FALSE)
 
 # ---------------------------------------------------------------------------
-# 0. 通用函数
+# 0. general helper functions
 # ---------------------------------------------------------------------------
 fmt <- function(x, d = 3) ifelse(is.na(x), "NA", sprintf(paste0("%.", d, "f"), x))
 fmt_ci <- function(est, lo, hi, d = 3) ifelse(is.na(est), "NA",
@@ -137,7 +137,7 @@ safe_write_csv <- function(x, file, ...) {
     if (ok) return(invisible(TRUE))
     Sys.sleep(0.5)
   }
-  stop("无法写入文件（重试10次）: ", file)
+  stop("cannot write file(retry 10 times): ", file)
 }
 
 safe_write_lines <- function(text, con, ...) {
@@ -146,10 +146,10 @@ safe_write_lines <- function(text, con, ...) {
     if (ok) return(invisible(TRUE))
     Sys.sleep(0.5)
   }
-  stop("无法写入文件（重试10次）: ", con)
+  stop("cannot write file(retry 10 times): ", con)
 }
 
-# 冻结模型的固定公式（A14 §17）
+# fixed formula of frozen model(A14 §17)
 fixed_score <- function(d) {
   2 * pmax(floor((d$age - 45) / 5), 0) +
     ifelse(d$edu_group == "Primary school", -2,
@@ -168,9 +168,9 @@ fixed_lp_manual <- function(d, b) {
 }
 
 # ---------------------------------------------------------------------------
-# 1. 构建 CHARLS 内部敏感性数据
+# 1. build CHARLS internal sensitivity data
 # ---------------------------------------------------------------------------
-w <- readRDS(file.path(P, "output/02_五波数据与质控/waves_cognition_2026-09-13.rds"))
+w <- readRDS(file.path(P, "output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds"))
 w$KEY <- ifelse(is.na(w$IDn), w$ID, w$IDn)
 w$ms10 <- as.numeric(w$orient) + as.numeric(w$ser7)
 stopifnot(!anyDuplicated(w[, c("KEY", "year")]))
@@ -191,7 +191,7 @@ n_ms10 <- w %>% filter(!is.na(ms10)) %>% count(KEY, name = "n_ms10")
 base <- base %>% left_join(m15, by = "KEY") %>% left_join(m18, by = "KEY") %>%
   left_join(n_ms10, by = "KEY") %>% mutate(fixed5 = as.integer(!is.na(n_ms10) & n_ms10 == 5))
 
-# 主切点：2011 固定队列 mean−1SD = 4.77 → floor = 4（A14 冻结）
+# primary cutoff: 2011 fixed cohort mean−1SD = 4.77 → floor = 4(A14 frozen)
 pool <- base %>% filter(!is.na(mem2011), mem2011 > 4)
 main <- pool %>% filter(fixed5 == 1, !is.na(mem2015), complete.cases(.[, c("age", "edu_group", "dep", "adl")])) %>%
   transmute(KEY, age, edu_group, dep, adl, mem2011, mem2015, event = as.integer(mem2015 <= 4),
@@ -206,7 +206,7 @@ main$score <- fixed_score(main); broad$score <- fixed_score(broad)
 stopifnot(nrow(main) == 4441, sum(main$event) == 658)
 stopifnot(nrow(broad) == 8296, sum(broad$event) == 1889)
 
-a07 <- readRDS(file.path(P, "output/10_筛查指数/screening_index_memory_v3_2026-09-26.rds"))
+a07 <- readRDS(file.path(P, "output/10_screening_index/screening_index_memory_v3_2026-09-26.rds"))
 stopifnot(all(main$KEY %in% a07$data$KEY), all(a07$data$KEY %in% main$KEY))
 stopifnot(sum(main$score != a07$data$score[match(main$KEY, a07$data$KEY)]) == 0)
 
@@ -218,19 +218,19 @@ p_main_main <- plogis(lp_main_main)
 lp_main_broad <- fixed_lp_manual(broad, b_main)
 p_main_broad <- plogis(lp_main_broad)
 
-# 流向表
+# flow table
 flow <- data.frame(
-  step = c("2011 年年龄≥45 岁", "2011 年记忆分可测量", "2011 年记忆分>4（基线未受损）",
-           "2015 年记忆分可测量", "四变量完整", "五波 ms10 固定队列"),
+  step = c("2011 age in year≥45 years old", "2011 year memory score measurable", "2011 year memory score>4(unimpaired at baseline)",
+           "2015 year memory score measurable", "complete four variable data", "five waves ms10 fixed cohort"),
   n = c(nrow(base), sum(!is.na(base$mem2011)), nrow(pool),
         sum(!is.na(pool$mem2015)), nrow(broad), nrow(main)),
-  note = c("CHARLS 2011 年", "即时回忆（imrc）与延迟回忆（dlrc）均非缺失", "预先规定的主切点 ≤4",
-           "4 年随访", "年龄、教育、抑郁、ADL", "A14 冻结模型的主分析样本（完整病例）")
+  note = c("CHARLS 2011 year", "immediate recall(imrc)and delayed recall(dlrc)both nonmissing", "prespecified primary cutoff ≤4",
+           "4 year follow up", "age, education, depression, ADL", "A14 primary sample for frozen model(complete cases)")
 )
-safe_write_csv(flow, file.path(OUT, "A15_样本流向_2026-09-26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(flow, file.path(OUT, "A15_sample_flow_2026_09_26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 2. 权重敏感性（2011 基线权重 + communityID 为 PSU）
+# 2. weight sensitivity(2011 baseline weights + communityID is PSU)
 # ---------------------------------------------------------------------------
 des_main <- svydesign(ids = ~communityID, weights = ~weight, data = main)
 fit_w <- svyglm(f, design = des_main, family = quasibinomial())
@@ -242,27 +242,27 @@ weights_diag <- data.frame(
   effective_n = c(nrow(main), sum(main$weight, na.rm = TRUE)^2 / sum(main$weight^2, na.rm = TRUE)),
   event_rate_weighted = c(mean(main$event), weighted.mean(main$event, main$weight))
 )
-safe_write_csv(weights_diag, file.path(OUT, "A15_权重_设计诊断.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(weights_diag, file.path(OUT, "A15_weights_design_diagnostics.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 coef_weight <- bind_rows(
-  coef_table(model_main, "权重", "主模型（未加权）", "unweighted", nrow(main), sum(main$event)),
-  coef_table(fit_w, "权重", "2011权重+PSU（重拟合）", "survey_refit", nrow(main), sum(main$event))
+  coef_table(model_main, "weights", "primary model(unweighted)", "unweighted", nrow(main), sum(main$event)),
+  coef_table(fit_w, "weights", "2011 weights+PSU(refit)", "survey_refit", nrow(main), sum(main$event))
 )
-safe_write_csv(coef_weight, file.path(OUT, "A15_权重_模型比较.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(coef_weight, file.path(OUT, "A15_weights_model_comparison.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 met_weight <- bind_rows(
-  model_metrics("权重", "主模型（未加权，冻结）", "frozen", main$event, p_main_main,
+  model_metrics("weights", "primary model(unweighted, frozen)", "frozen", main$event, p_main_main,
                 score = main$score, n_note = nrow(main), B = 500),
-  model_metrics("权重", "2011权重+PSU（冻结模型）", "frozen", main$event, p_main_main,
+  model_metrics("weights", "2011 weights+PSU(frozen model)", "frozen", main$event, p_main_main,
                 score = main$score, w = main$weight, cluster = main$communityID, n_note = nrow(main), B = 500),
-  model_metrics("权重", "2011权重+PSU（重拟合）", "survey_refit", main$event,
+  model_metrics("weights", "2011 weights+PSU(refit)", "survey_refit", main$event,
                 as.numeric(predict(fit_w, type = "response")), score = main$score,
                 w = main$weight, cluster = main$communityID, n_note = nrow(main), B = 500)
 )
-safe_write_csv(met_weight, file.path(OUT, "A15_权重_性能比较.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(met_weight, file.path(OUT, "A15_weights_performance_comparison.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 3. IPW：选择进入最终分析样本的逆概率加权
+# 3. IPW: inverse probability weighting for selection into final analysis
 # ---------------------------------------------------------------------------
 sel_vars <- c("age", "female", "edu_group", "rural", "mem2011", "cesd10", "adl")
 pool_ipw <- pool %>% filter(complete.cases(.[, sel_vars]))
@@ -288,11 +288,11 @@ ipw_diag <- data.frame(
   ipw_min = min(main_ipw$ipw), ipw_median = median(main_ipw$ipw), ipw_max = max(main_ipw$ipw),
   effective_n = sum(main_ipw$ipw)^2 / sum(main_ipw$ipw^2)
 )
-safe_write_csv(ipw_diag, file.path(OUT, "A15_IPW_诊断.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(ipw_diag, file.path(OUT, "A15_IPW_diagnostics.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-ipw_selection_coef <- coef_table(ps_fit, "IPW", "选择进入最终样本（logistic）", "selection_model",
+ipw_selection_coef <- coef_table(ps_fit, "IPW", "selection into final sample(logistic)", "selection_model",
                                    nrow(pool_ipw), sum(pool_ipw$selected))
-safe_write_csv(ipw_selection_coef, file.path(OUT, "A15_IPW_选择模型.csv"),
+safe_write_csv(ipw_selection_coef, file.path(OUT, "A15_IPW_selection_model.csv"),
                row.names = FALSE, fileEncoding = "UTF-8")
 
 smd_weighted <- function(x, w, ref) {
@@ -313,37 +313,37 @@ balance_ipw <- bind_rows(lapply(balance_vars, function(v) {
              smd_before = smd_weighted(x, rep(1, length(x)), r),
              smd_after = smd_weighted(x, main_ipw$ipw, r))
 }))
-safe_write_csv(balance_ipw, file.path(OUT, "A15_IPW_平衡.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(balance_ipw, file.path(OUT, "A15_IPW_balance.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 des_ipw <- svydesign(ids = ~communityID, weights = ~ipw, data = main_ipw)
 des_ipw_comb <- svydesign(ids = ~communityID, weights = ~ipw_combined, data = main_ipw)
 fit_ipw <- svyglm(f, design = des_ipw, family = quasibinomial())
 fit_ipw_comb <- svyglm(f, design = des_ipw_comb, family = quasibinomial())
 coef_ipw <- bind_rows(
-  coef_table(model_main, "IPW", "主模型（未加权）", "unweighted", nrow(main_ipw), sum(main_ipw$event)),
-  coef_table(fit_ipw, "IPW", "IPW（选择进入最终样本）", "ipw_refit", nrow(main_ipw), sum(main_ipw$event)),
-  coef_table(fit_ipw_comb, "IPW", "权重×IPW（重拟合）", "combined_refit", nrow(main_ipw), sum(main_ipw$event))
+  coef_table(model_main, "IPW", "primary model(unweighted)", "unweighted", nrow(main_ipw), sum(main_ipw$event)),
+  coef_table(fit_ipw, "IPW", "IPW(selection into final sample)", "ipw_refit", nrow(main_ipw), sum(main_ipw$event)),
+  coef_table(fit_ipw_comb, "IPW", "weights×IPW(refit)", "combined_refit", nrow(main_ipw), sum(main_ipw$event))
 )
-safe_write_csv(coef_ipw, file.path(OUT, "A15_IPW_模型比较.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(coef_ipw, file.path(OUT, "A15_IPW_model_comparison.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 met_ipw <- bind_rows(
-  model_metrics("IPW", "主模型（未加权，冻结）", "frozen", main_ipw$event,
+  model_metrics("IPW", "primary model(unweighted, frozen)", "frozen", main_ipw$event,
                 plogis(fixed_lp_manual(main_ipw, b_main)), score = main_ipw$score,
                 n_note = nrow(main_ipw), B = 500),
-  model_metrics("IPW", "IPW（冻结模型）", "frozen", main_ipw$event,
+  model_metrics("IPW", "IPW(frozen model)", "frozen", main_ipw$event,
                 plogis(fixed_lp_manual(main_ipw, b_main)), score = main_ipw$score,
                 w = main_ipw$ipw, cluster = main_ipw$communityID, n_note = nrow(main_ipw), B = 500),
-  model_metrics("IPW", "IPW（重拟合）", "ipw_refit", main_ipw$event,
+  model_metrics("IPW", "IPW(refit)", "ipw_refit", main_ipw$event,
                 as.numeric(predict(fit_ipw, type = "response")), score = main_ipw$score,
                 w = main_ipw$ipw, cluster = main_ipw$communityID, n_note = nrow(main_ipw), B = 500),
-  model_metrics("IPW", "权重×IPW（重拟合）", "combined_refit", main_ipw$event,
+  model_metrics("IPW", "weights×IPW(refit)", "combined_refit", main_ipw$event,
                 as.numeric(predict(fit_ipw_comb, type = "response")), score = main_ipw$score,
                 w = main_ipw$ipw_combined, cluster = main_ipw$communityID, n_note = nrow(main_ipw), B = 500)
 )
-safe_write_csv(met_ipw, file.path(OUT, "A15_IPW_性能比较.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+safe_write_csv(met_ipw, file.path(OUT, "A15_IPW_performance_comparison.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 4. 宽样本/固定队列选择敏感性
+# 4. broader sample/fixed cohort selection sensitivity
 # ---------------------------------------------------------------------------
 nonfixed <- broad %>% filter(fixed5 == 0)
 smd_plain <- function(x1, x2) {
@@ -361,32 +361,32 @@ selection_balance <- bind_rows(lapply(selection_vars, function(v) {
   data.frame(variable = v, main_mean = mean(x, na.rm = TRUE), nonfixed_mean = mean(y, na.rm = TRUE),
              smd = smd_plain(x, y))
 }))
-safe_write_csv(selection_balance, file.path(OUT, "A15_缺失_固定队列与宽样本比较.csv"),
+safe_write_csv(selection_balance, file.path(OUT, "A15_missing_fixed_cohort_versus_broader_sample.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 fit_broad <- glm(f, data = broad, family = binomial())
 coef_broad <- bind_rows(
-  coef_table(model_main, "缺失/选择", "主模型（固定队列）", "unweighted", nrow(main), sum(main$event)),
-  coef_table(fit_broad, "缺失/选择", "宽样本（不要求五波 ms10 完整）", "broad_refit",
+  coef_table(model_main, "missing/selection", "primary model(fixed cohort)", "unweighted", nrow(main), sum(main$event)),
+  coef_table(fit_broad, "missing/selection", "broader sample(five wave participation not required ms10 complete)", "broad_refit",
              nrow(broad), sum(broad$event))
 )
-safe_write_csv(coef_broad, file.path(OUT, "A15_缺失_宽样本模型比较.csv"),
+safe_write_csv(coef_broad, file.path(OUT, "A15_missing_broader_sample_model_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 met_broad <- bind_rows(
-  model_metrics("缺失/选择", "固定队列（主模型，冻结）", "frozen", main$event, p_main_main,
+  model_metrics("missing/selection", "fixed cohort(primary model, frozen)", "frozen", main$event, p_main_main,
                 score = main$score, n_note = nrow(main), B = 500),
-  model_metrics("缺失/选择", "宽样本（主模型，冻结）", "frozen", broad$event, p_main_broad,
+  model_metrics("missing/selection", "broader sample(primary model, frozen)", "frozen", broad$event, p_main_broad,
                 score = broad$score, n_note = nrow(broad), B = 500),
-  model_metrics("缺失/选择", "宽样本（重拟合）", "broad_refit", broad$event,
+  model_metrics("missing/selection", "broader sample(refit)", "broad_refit", broad$event,
                 as.numeric(predict(fit_broad, type = "response")), score = broad$score,
                 n_note = nrow(broad), B = 500)
 )
-safe_write_csv(met_broad, file.path(OUT, "A15_缺失_宽样本性能比较.csv"),
+safe_write_csv(met_broad, file.path(OUT, "A15_missing_broader_sample_performance_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 5. 多重插补（MICE, m=20）
+# 5. multiple imputation(MICE, m=20)
 # ---------------------------------------------------------------------------
 # F30: read each original vector directly; a same-name summarise() mean would
 # overwrite that vector before subsequent quantiles. These are descriptive
@@ -410,7 +410,7 @@ mi_vars <- c("age", "female", "edu_group", "rural", "mem2011", "cesd10", "dep",
              "adl", "sleep_h", "pain_any", "hibp", "diab", "stroke", "ms10_2011", "fixed5")
 set.seed(20260926)
 
-# 5.1 协变量缺失：结局已观察者 n=8,371
+# 5.1 missing covariates: participants with observed outcomes n=8,371
 d_cov_mi <- pool %>% filter(!is.na(mem2015)) %>%
   transmute(across(all_of(mi_vars)), event = as.integer(mem2015 <= 4))
 imp_cov <- mice(d_cov_mi, m = 20, maxit = 10, method = "pmm",
@@ -418,73 +418,73 @@ imp_cov <- mice(d_cov_mi, m = 20, maxit = 10, method = "pmm",
 fits_cov <- with(imp_cov, glm(event ~ age + edu_group + dep + adl, family = binomial()))
 pool_cov <- summary(pool(fits_cov), conf.int = TRUE)
 coef_cov_mi <- data.frame(
-  section = "缺失", scenario = "宽样本 MICE m=20（协变量缺失；结局观察者）", model_type = "mice_cov",
+  section = "missing", scenario = "broader sample MICE m=20(missing covariates; participants with observed outcomes)", model_type = "mice_cov",
   term = pool_cov$term, beta = pool_cov$estimate, se = pool_cov$std.error,
   p = pool_cov$p.value, OR = exp(pool_cov$estimate),
   OR_low = exp(pool_cov$`2.5 %`), OR_high = exp(pool_cov$`97.5 %`),
   n = nrow(d_cov_mi), events = sum(d_cov_mi$event), row.names = NULL
 )
-safe_write_csv(coef_cov_mi, file.path(OUT, "A15_缺失_MICE_协变量_系数.csv"),
+safe_write_csv(coef_cov_mi, file.path(OUT, "A15_missing_MICE_covariates_coefficients.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 perf_cov_mi <- bind_rows(lapply(1:20, function(i) {
   d <- complete(imp_cov, i)
   mm <- glm(event ~ age + edu_group + dep + adl, data = d, family = binomial())
-  model_metrics("缺失", paste0("MICE协变量 插补", i), "mice_cov", d$event,
+  model_metrics("missing", paste0("MICE covariates imputation", i), "mice_cov", d$event,
                 predict(mm, type = "response"), score = fixed_score(d), n_note = nrow(d), B = 0)
 }))
 perf_cov_sum <- summarise_mi_performance(perf_cov_mi) %>%
-  mutate(section = "缺失", scenario = "宽样本 MICE m=20（协变量缺失；结局观察者）",
-             model_type = "mice_cov", interval_type = "插补间2.5–97.5%范围（非抽样CI）",
+  mutate(section = "missing", scenario = "broader sample MICE m=20(missing covariates; participants with observed outcomes)",
+             model_type = "mice_cov", interval_type = "between imputations 2.5–97.5%range(nonsampling CI)",
              n_note = nrow(d_cov_mi), .before = 1)
-safe_write_csv(perf_cov_sum, file.path(OUT, "A15_缺失_MICE_协变量_性能汇总.csv"),
+safe_write_csv(perf_cov_sum, file.path(OUT, "A15_missing_MICE_covariates_performance_summary.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
-# 5.2 结局缺失：基线未受损者 n=10,422，插补 2015 记忆分
+# 5.2 missing outcome: baseline unimpaired participants n=10,422, imputation 2015 memory score
 d_out_mi <- pool %>% select(all_of(mi_vars), mem2015)
 imp_out <- mice(d_out_mi, m = 20, maxit = 10, method = "pmm",
                 printFlag = FALSE, seed = 20260926)
 fits_out <- with(imp_out, glm(I(mem2015 <= 4) ~ age + edu_group + dep + adl, family = binomial()))
 pool_out <- summary(pool(fits_out), conf.int = TRUE)
 coef_out_mi <- data.frame(
-  section = "缺失", scenario = "宽样本 MICE m=20（结局缺失，MAR；含固定队列辅助变量）", model_type = "mice_outcome",
+  section = "missing", scenario = "broader sample MICE m=20(missing outcome, MAR; including fixed cohort auxiliary variables)", model_type = "mice_outcome",
   term = pool_out$term, beta = pool_out$estimate, se = pool_out$std.error,
   p = pool_out$p.value, OR = exp(pool_out$estimate),
   OR_low = exp(pool_out$`2.5 %`), OR_high = exp(pool_out$`97.5 %`),
   n = nrow(d_out_mi), events = NA_integer_, row.names = NULL
 )
-safe_write_csv(coef_out_mi, file.path(OUT, "A15_缺失_MICE_结局_系数.csv"),
+safe_write_csv(coef_out_mi, file.path(OUT, "A15_missing_MICE_outcome_coefficients.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 perf_out_mi <- bind_rows(lapply(1:20, function(i) {
   d <- complete(imp_out, i); d$event <- as.integer(d$mem2015 <= 4)
   mm <- glm(event ~ age + edu_group + dep + adl, data = d, family = binomial())
-  model_metrics("缺失", paste0("MICE结局 插补", i), "mice_outcome", d$event,
+  model_metrics("missing", paste0("MICE outcome imputation", i), "mice_outcome", d$event,
                 predict(mm, type = "response"), score = fixed_score(d), n_note = nrow(d), B = 0)
 }))
 perf_out_sum <- summarise_mi_performance(perf_out_mi) %>%
-  mutate(section = "缺失", scenario = "宽样本 MICE m=20（结局缺失，MAR；含固定队列辅助变量）",
-             model_type = "mice_outcome", interval_type = "插补间2.5–97.5%范围（非抽样CI）",
+  mutate(section = "missing", scenario = "broader sample MICE m=20(missing outcome, MAR; including fixed cohort auxiliary variables)",
+             model_type = "mice_outcome", interval_type = "between imputations 2.5–97.5%range(nonsampling CI)",
              n_note = nrow(d_out_mi), .before = 1)
-safe_write_csv(perf_out_sum, file.path(OUT, "A15_缺失_MICE_结局_性能汇总.csv"),
+safe_write_csv(perf_out_sum, file.path(OUT, "A15_missing_MICE_outcome_performance_summary.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 6. 2018 测量差异：T09 预设的限 ≥60 岁 / 限记忆题完整
+# 6. 2018 measurement differences: T09 prespecified restriction ≥60 years old / restricted to complete memory items
 # ---------------------------------------------------------------------------
 main18 <- main %>% mutate(mem18_complete = !is.na(imrc2018) & !is.na(dlrc2018))
 scenarios_2018 <- list(
-  "全部主分析样本" = main18,
-  "2018年满60岁" = main18 %>% filter(age2018 >= 60),
-  "2018记忆题完整" = main18 %>% filter(mem18_complete),
-  "2018年满60岁且记忆题完整" = main18 %>% filter(age2018 >= 60, mem18_complete)
+  "entire primary analysis sample" = main18,
+  "2018 aged at least 60 years old" = main18 %>% filter(age2018 >= 60),
+  "2018 complete memory items" = main18 %>% filter(mem18_complete),
+  "2018 aged at least 60 years old with complete memory items" = main18 %>% filter(age2018 >= 60, mem18_complete)
 )
 coef_2018 <- bind_rows(lapply(names(scenarios_2018), function(nm) {
   d <- scenarios_2018[[nm]]
   mm <- glm(f, data = d, family = binomial())
-  coef_table(mm, "2018 年测量差异", nm, "refit_subset", nrow(d), sum(d$event))
+  coef_table(mm, "2018 year measurement differences", nm, "refit_subset", nrow(d), sum(d$event))
 }))
-safe_write_csv(coef_2018, file.path(OUT, "A15_2018测量差异_模型比较.csv"),
+safe_write_csv(coef_2018, file.path(OUT, "A15_2018_measurement_differences_model_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 met_2018 <- bind_rows(lapply(names(scenarios_2018), function(nm) {
@@ -492,25 +492,25 @@ met_2018 <- bind_rows(lapply(names(scenarios_2018), function(nm) {
   mm <- glm(f, data = d, family = binomial())
   frozen <- plogis(fixed_lp_manual(d, b_main))
   bind_rows(
-    model_metrics("2018 年测量差异", paste0(nm, "（冻结模型）"), "frozen", d$event, frozen,
+    model_metrics("2018 year measurement differences", paste0(nm, "(frozen model)"), "frozen", d$event, frozen,
                   score = d$score, n_note = nrow(d), B = 0),
-    model_metrics("2018 年测量差异", paste0(nm, "（重拟合）"), "refit_subset", d$event,
+    model_metrics("2018 year measurement differences", paste0(nm, "(refit)"), "refit_subset", d$event,
                   predict(mm, type = "response"), score = d$score, n_note = nrow(d), B = 0)
   )
 }))
-safe_write_csv(met_2018, file.path(OUT, "A15_2018测量差异_性能比较.csv"),
+safe_write_csv(met_2018, file.path(OUT, "A15_2018_measurement_differences_performance_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 7. 切点与结局定义敏感性
+# 7. cutoff and outcome definition sensitivity
 # ---------------------------------------------------------------------------
 cut_rows <- list(); cut_met <- list()
 for (t in 3:6) {
   d <- main %>% filter(mem2011 > t) %>% mutate(event_t = as.integer(mem2015 <= t))
   mm <- glm(event_t ~ age + edu_group + dep + adl, data = d, family = binomial())
-  cut_rows[[length(cut_rows) + 1]] <- coef_table(mm, "切点", paste0("内部切点 ≤", t), "refit_cut",
+  cut_rows[[length(cut_rows) + 1]] <- coef_table(mm, "cutoff", paste0("internal cutoff ≤", t), "refit_cut",
                                                  nrow(d), sum(d$event_t))
-  cut_met[[length(cut_met) + 1]] <- model_metrics("切点", paste0("内部切点 ≤", t, "（重拟合）"),
+  cut_met[[length(cut_met) + 1]] <- model_metrics("cutoff", paste0("internal cutoff ≤", t, "(refit)"),
                                                    "refit_cut", d$event_t,
                                                    predict(mm, type = "response"),
                                                    score = fixed_score(d), n_note = nrow(d), B = 0)
@@ -522,19 +522,19 @@ ref_cut <- base %>% filter(fixed5 == 1, !is.na(mem2011))
 cut2011_raw <- mean(ref_cut$mem2011, na.rm = TRUE) - sd(ref_cut$mem2011, na.rm = TRUE)
 cut2011 <- floor(cut2011_raw)
 cut_note <- data.frame(
-  definition = c("2011 mean−1SD（主切点）", "2015 mean−1SD（同一风险集重估）", "精确连续切点 mean−1SD（未取整）"),
+  definition = c("2011 mean−1SD(primary cutoff)", "2015 mean−1SD(reestimate in same risk set)", "exact continuous cutoff mean−1SD(not rounded)"),
   raw_cut = c(cut2011_raw, mean(main$mem2015) - sd(main$mem2015), cut2011_raw),
   integer_cut = c(cut2011, cut2015, 4),
-  note = c("A14 冻结主切点 ≤4（全固定队列 mean−1SD）", "2015 重估 raw=4.797；按 SAP floor 规则为 ≤4（若四舍五入为 ≤5，见 ≤5 敏感性）", "记忆分为整数，精确切点等价于 ≤4")
+  note = c("A14 frozen primary cutoff ≤4(entire fixed cohort mean−1SD)", "2015 reestimate raw=4.797; by SAP floor rule is ≤4(if rounded to ≤5, see ≤5 sensitivity)", "memory scores are integers, exact cutoff equivalent to ≤4")
 )
-safe_write_csv(coef_cut, file.path(OUT, "A15_切点_内部模型比较.csv"),
+safe_write_csv(coef_cut, file.path(OUT, "A15_cutoff_internal_model_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
-safe_write_csv(met_cut, file.path(OUT, "A15_切点_内部性能比较.csv"),
+safe_write_csv(met_cut, file.path(OUT, "A15_cutoff_internal_performance_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
-safe_write_csv(cut_note, file.path(OUT, "A15_切点_定义汇总.csv"),
+safe_write_csv(cut_note, file.path(OUT, "A15_cutoff_definition_summary.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
-# 连续变化与基线校正
+# continuous change and baseline adjustment
 main$delta <- main$mem2015 - main$mem2011
 main$decline2 <- as.integer(main$delta <= -2)
 lm_delta <- lm(delta ~ age + edu_group + dep + adl, data = main)
@@ -546,59 +546,59 @@ lm_tab <- function(fit, label) {
              t = co[, 3], p = co[, 4], beta_low = ci[, 1], beta_high = ci[, 2],
              row.names = NULL)
 }
-outcome_cont <- bind_rows(lm_tab(lm_delta, "未校正连续变化 delta"),
-                          lm_tab(lm_adj, "基线校正后 mem2015"))
+outcome_cont <- bind_rows(lm_tab(lm_delta, "unadjusted continuous change delta"),
+                          lm_tab(lm_adj, "after baseline adjustment mem2015"))
 fit_decline2 <- glm(decline2 ~ age + edu_group + dep + adl, data = main, family = binomial())
 fit_adj_event <- glm(event ~ mem2011 + age + edu_group + dep + adl, data = main, family = binomial())
 outcome_alt <- bind_rows(
-  coef_table(model_main, "结局定义", "主结局：4年跨阈值 ≤4", "unweighted", nrow(main), sum(main$event)),
-  coef_table(fit_decline2, "结局定义", "替代：记忆下降 ≥2 分", "alt_binary", nrow(main), sum(main$decline2)),
-  coef_table(fit_adj_event, "结局定义", "基线校正后跨阈值（含 mem2011）", "baseline_adjusted",
+  coef_table(model_main, "outcome_definition", "primary outcome: 4 year threshold crossing ≤4", "unweighted", nrow(main), sum(main$event)),
+  coef_table(fit_decline2, "outcome_definition", "alternative: memory decline ≥2 points", "alt_binary", nrow(main), sum(main$decline2)),
+  coef_table(fit_adj_event, "outcome_definition", "threshold crossing after baseline adjustment(including mem2011)", "baseline_adjusted",
              nrow(main), sum(main$event))
 )
 met_outcome_alt <- bind_rows(
-  model_metrics("结局定义", "主结局：4年跨阈值 ≤4", "unweighted", main$event,
+  model_metrics("outcome_definition", "primary outcome: 4 year threshold crossing ≤4", "unweighted", main$event,
                 predict(model_main, newdata = main, type = "response"), score = main$score,
                 n_note = nrow(main), B = 0),
-  model_metrics("结局定义", "替代：记忆下降 ≥2 分", "alt_binary", main$decline2,
+  model_metrics("outcome_definition", "alternative: memory decline ≥2 points", "alt_binary", main$decline2,
                 predict(fit_decline2, type = "response"), score = main$score,
                 n_note = nrow(main), B = 0),
-  model_metrics("结局定义", "基线校正后跨阈值（含 mem2011）", "baseline_adjusted", main$event,
+  model_metrics("outcome_definition", "threshold crossing after baseline adjustment(including mem2011)", "baseline_adjusted", main$event,
                 predict(fit_adj_event, type = "response"), score = main$score,
                 n_note = nrow(main), B = 0)
 )
-safe_write_csv(outcome_cont, file.path(OUT, "A15_结局定义_连续变化模型.csv"),
+safe_write_csv(outcome_cont, file.path(OUT, "A15_outcome_definition_continuous_change_model.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
-safe_write_csv(outcome_alt, file.path(OUT, "A15_结局定义_模型比较.csv"),
+safe_write_csv(outcome_alt, file.path(OUT, "A15_outcome_definition_model_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
-safe_write_csv(met_outcome_alt, file.path(OUT, "A15_结局定义_性能比较.csv"),
+safe_write_csv(met_outcome_alt, file.path(OUT, "A15_outcome_definition_performance_comparison.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
-# 外部切点/映射敏感性汇总（直接整理 A12 正式结果，不重算外部主模型）
-a12 <- readRDS(file.path(P, "output/11_外部验证/A12_results_2026-09-26.rds"))
+# external cutoff/mapping sensitivity summary(organize directly A12 formal results, do not recompute external primary model)
+a12 <- readRDS(file.path(P, "output/11_external_validation/A12_results_2026-09-26.rds"))
 ext_cut <- a12$perf %>%
   transmute(cohort, cut_definition, n_total, events_total, n_model, events_model,
             auc_model, auc_model_low, auc_model_high, auc_score_full,
             cal_slope, cal_intercept, brier)
-safe_write_csv(ext_cut, file.path(OUT, "A15_切点_外部汇总.csv"),
+safe_write_csv(ext_cut, file.path(OUT, "A15_cutoff_external_summary.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 ext_extra <- bind_rows(
-  a12$extra_dep %>% transmute(cohort, sensitivity = "抑郁替代切点", detail = dep_rule,
+  a12$extra_dep %>% transmute(cohort, sensitivity = "alternative depression cutoff", detail = dep_rule,
                               n, events, auc_model, auc_model_low, auc_model_high,
                               auc_score, cal_slope, cal_intercept, brier),
-  a12$extra_score_alt %>% transmute(cohort, sensitivity = "score_alt（教育位置编码）", detail = NA_character_,
+  a12$extra_score_alt %>% transmute(cohort, sensitivity = "score_alt(positional education coding)", detail = NA_character_,
                                     n, events, auc_model = NA_real_, auc_model_low = NA_real_,
                                     auc_model_high = NA_real_, auc_score = auc_score_alt,
                                     cal_slope = NA_real_, cal_intercept = NA_real_, brier = NA_real_),
-  a12$extra_elsa_age %>% transmute(cohort, sensitivity = "ELSA 排除年龄90顶码", detail = NA_character_,
+  a12$extra_elsa_age %>% transmute(cohort, sensitivity = "ELSA exclude age 90 top coding", detail = NA_character_,
                                    n, events, auc_model, auc_model_low, auc_model_high,
                                    auc_score, cal_slope, cal_intercept, brier)
 )
-safe_write_csv(ext_extra, file.path(OUT, "A15_切点_外部补充敏感性.csv"),
+safe_write_csv(ext_extra, file.path(OUT, "A15_cutoff_additional_external_sensitivity.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 8. 外部队列 ADL 缺失敏感性（整数分不受影响；连续模型 ADL=0 vs 完整病例）
+# 8. external cohort ADL missing data sensitivity(integer scores unaffected; continuous model ADL=0 vs complete cases)
 # ---------------------------------------------------------------------------
 adl_ext <- bind_rows(lapply(c("HRS", "ELSA", "SHARE"), function(co) {
   x <- readRDS(file.path(P, "external_data", co, "analysis",
@@ -616,11 +616,11 @@ adl_ext <- bind_rows(lapply(c("HRS", "ELSA", "SHARE"), function(co) {
              delta_auc = a_zero[["auc"]] - a_obs[["auc"]],
              brier_observed = b_obs, brier_adl0 = b_zero, row.names = NULL)
 }))
-safe_write_csv(adl_ext, file.path(OUT, "A15_缺失_外部ADL敏感性.csv"),
+safe_write_csv(adl_ext, file.path(OUT, "A15_missing_external_ADL_sensitivity.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 9. 汇总表与稳定性判定
+# 9. summary table and stability assessment
 # ---------------------------------------------------------------------------
 summary_internal <- bind_rows(met_weight, met_ipw, met_broad, perf_cov_sum, perf_out_sum,
                               met_2018, met_cut, met_outcome_alt) %>%
@@ -628,18 +628,18 @@ summary_internal <- bind_rows(met_weight, met_ipw, met_broad, perf_cov_sum, perf
   select(domain, scenario, model_type, n_model, events_model, event_rate, event_rate_type,
          auc_model, auc_low, auc_high, auc_score, cal_slope, cal_slope_low, cal_slope_high,
          cal_intercept, cal_intercept_low, cal_intercept_high, brier, interval_type, n_note)
-safe_write_csv(summary_internal, file.path(OUT, "A15_内部敏感性汇总.csv"),
+safe_write_csv(summary_internal, file.path(OUT, "A15_internal_sensitivity_summary.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 summary_external <- bind_rows(
-  ext_cut %>% mutate(domain = "外部切点", scenario = paste0(cohort, " / ", cut_definition),
+  ext_cut %>% mutate(domain = "external cutoff", scenario = paste0(cohort, " / ", cut_definition),
                      model_type = "fixed_external", .before = 1) %>%
     transmute(domain, scenario, model_type, n_model, events_model, event_rate = events_model / n_model,
               auc_model, auc_low = auc_model_low, auc_high = auc_model_high, auc_score = auc_score_full,
               cal_slope, cal_slope_low = NA_real_, cal_slope_high = NA_real_,
               cal_intercept, cal_intercept_low = NA_real_, cal_intercept_high = NA_real_,
               brier, n_note = NA_integer_),
-  ext_extra %>% mutate(domain = "外部补充", scenario = paste0(cohort, " / ", sensitivity),
+  ext_extra %>% mutate(domain = "external supplement", scenario = paste0(cohort, " / ", sensitivity),
                        model_type = "fixed_external", .before = 1) %>%
     transmute(domain, scenario, model_type, n_model = n, events_model = events, event_rate = events / n,
               auc_model, auc_low = auc_model_low, auc_high = auc_model_high, auc_score,
@@ -647,16 +647,16 @@ summary_external <- bind_rows(
               cal_intercept, cal_intercept_low = NA_real_, cal_intercept_high = NA_real_,
               brier, n_note = NA_integer_)
 )
-safe_write_csv(summary_external, file.path(OUT, "A15_外部敏感性汇总.csv"),
+safe_write_csv(summary_external, file.path(OUT, "A15_external_sensitivity_summary.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 key_direction <- function(tab, scenario, term) {
   z <- tab %>% filter(.data$scenario == !!scenario, .data$term == !!term)
   if (nrow(z) == 0) return(NA_character_)
   ifelse(is.na(z$OR[1]), NA_character_,
-         ifelse(z$OR[1] > 1 & z$OR_low[1] > 1, "OR>1且CI>1",
-                ifelse(z$OR[1] < 1 & z$OR_high[1] < 1, "OR<1且CI<1",
-                       ifelse(z$OR[1] > 1, "OR>1（CI含1）", "OR<1（CI含1）"))))
+         ifelse(z$OR[1] > 1 & z$OR_low[1] > 1, "OR>1 and CI>1",
+                ifelse(z$OR[1] < 1 & z$OR_high[1] < 1, "OR<1 and CI<1",
+                       ifelse(z$OR[1] > 1, "OR>1(CI including 1)", "OR<1(CI including 1)"))))
 }
 coef_all <- bind_rows(coef_weight, coef_ipw, coef_broad, coef_2018, coef_cut, outcome_alt, coef_cov_mi, coef_out_mi)
 key_terms <- c("age", "edu_groupHigh school or above", "dep", "adl")
@@ -669,29 +669,29 @@ key_or <- bind_rows(lapply(unique(coef_all$scenario), function(sc) {
                direction = key_direction(coef_all, sc, tm))
   }))
 }))
-safe_write_csv(key_or, file.path(OUT, "A15_关键OR方向稳定性.csv"),
+safe_write_csv(key_or, file.path(OUT, "A15_key_OR_directional_stability.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 stability <- data.frame(
-  domain = c("权重", "IPW", "2018 年测量差异", "切点", "缺失/选择", "总体"),
+  domain = c("weights", "IPW", "2018 year measurement differences", "cutoff", "missing/selection", "overall"),
   conclusion = c(
-    "加权重拟合 AUC 0.701，未加权主模型 AUC 0.702；年龄、教育、抑郁和 ADL 的关联方向与主模型一致。",
-    "IPW 重拟合模型 AUC 0.702；选择差异经 IPW 后最大 |SMD|=0.042；关键 OR 方向与主模型一致。",
-    "主结局 2011→2015 不使用 2018 年数据；限 2018 年满 60 岁或记忆题完整后 OR 方向一致，AUC 0.677–0.698（轻度下降）。",
-    "内部切点 ≤3–≤6 的 AUC 0.699–0.711；外部 S0/S1/S2 及替代切点的 AUC 均≥0.69。",
-    "宽样本 n=8,296、事件率 22.8%，重拟合 AUC 0.729；MICE 协变量/结局 AUC 0.728/0.734；方向稳定，但绝对风险与校准随人群改变。",
-    "在预设敏感性口径下主要结论方向稳定；绝对风险、校准截距和 AUC 受分析人群/切点口径影响；解释以 A14 冻结模型（v1.0）为准。"
+    "weighted refit AUC 0.701, unweighted primary model AUC 0.702; age, education, depression and ADL association direction consistent with primary model.",
+    "IPW refitted model AUC 0.702; selection differences after IPW maximum after |SMD|=0.042; key OR direction consistent with primary model.",
+    "primary outcome 2011→2015 do not use 2018 year data; restricted to 2018 aged at least 60 age restriction or complete memory items OR consistent direction, AUC 0.677–0.698(slight decline).",
+    "internal cutoff ≤3–≤6 of AUC 0.699–0.711; external S0/S1/S2 and alternative cutoff AUC all≥0.69.",
+    "broader sample n=8,296, event rate 22.8%, refit AUC 0.729; MICE covariates/outcome AUC 0.728/0.734; stable direction, but absolute risk and calibration vary by population.",
+    "main conclusions directionally stable under prespecified sensitivities; absolute risk, calibration intercept and AUC affected by analysis population/and cutoff definition; interpret using A14 frozen model(v1.0)as reference."
   ),
-  status = c("稳定", "稳定", "稳定（不直接影响主结局）", "稳定", "方向稳定；绝对风险与校准需谨慎", "通过")
+  status = c("stable", "stable", "stable(does not directly affect primary outcome)", "stable", "stable direction; interpret absolute risk and calibration cautiously", "passed")
 )
-safe_write_csv(stability, file.path(OUT, "A15_结论稳定性判定.csv"),
+safe_write_csv(stability, file.path(OUT, "A15_assessment_of_conclusion_stability.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
 # ---------------------------------------------------------------------------
-# 10. 图：内部敏感性 AUC 与关键 OR 方向
+# 10. figure: internal sensitivity AUC and key OR direction
 # ---------------------------------------------------------------------------
 plot_tab <- summary_internal %>%
-  filter(!grepl("插补", scenario), !grepl("MICE", scenario), !is.na(auc_model)) %>%
+  filter(!grepl("imputation", scenario), !grepl("MICE", scenario), !is.na(auc_model)) %>%
   distinct(domain, scenario, .keep_all = TRUE) %>%
   mutate(label = paste0(domain, " | ", scenario))
 plot_tab <- plot_tab[order(plot_tab$auc_model), ]
@@ -705,10 +705,10 @@ plot(plot_tab$auc_model, yy, xlim = auc_xlim, ylim = c(0.5, nrow(plot_tab) + 0.5
      main = "A15 internal sensitivity: discrimination", yaxt = "n", cex = 0.85)
 segments(plot_tab$auc_low, yy, plot_tab$auc_high, yy, col = "#9DC3E6", lwd = 2)
 points(plot_tab$auc_model, yy, pch = 16, col = "#1F4E78", cex = 0.9)
-abline(v = summary_internal$auc_model[summary_internal$scenario == "主模型（未加权，冻结）"][1], lty = 2, col = "#C00000")
+abline(v = summary_internal$auc_model[summary_internal$scenario == "primary model(unweighted, frozen)"][1], lty = 2, col = "#C00000")
 axis(2, at = yy, labels = plot_tab$label, las = 1, cex.axis = 0.65)
 grid(col = "grey90")
-plot_or <- key_or %>% filter(term != "adl", !is.na(OR), !grepl("插补", scenario))
+plot_or <- key_or %>% filter(term != "adl", !is.na(OR), !grepl("imputation", scenario))
 plot_or$term_plot <- ifelse(plot_or$term == "age", "Age (per 5 years)",
                      ifelse(plot_or$term == "dep", "Depression", "Education high"))
 plot_or$OR_plot <- ifelse(plot_or$term == "age", plot_or$OR^5, plot_or$OR)
@@ -730,13 +730,13 @@ dev.off()
 tryCatch({
   tiff(file.path(FIG, "FigureS8_A15_sensitivity_2026-09-26.tif"), width = 22, height = 12, units = "in", res = 600, compression = "lzw")
   par(mfrow = c(1, 2), mar = c(4.5, 25, 3, 1.5), family = "sans")
-  yy <- seq_len(nrow(plot_tab)); plot(plot_tab$auc_model, yy, xlim = auc_xlim, ylim = c(0.5, nrow(plot_tab) + 0.5), pch = 16, col = "#1F4E78", xlab = "AUC (continuous model)", ylab = "", main = "A15 internal sensitivity: discrimination", yaxt = "n", cex = 0.85); segments(plot_tab$auc_low, yy, plot_tab$auc_high, yy, col = "#9DC3E6", lwd = 2); points(plot_tab$auc_model, yy, pch = 16, col = "#1F4E78", cex = 0.9); abline(v = summary_internal$auc_model[summary_internal$scenario == "主模型（未加权，冻结）"][1], lty = 2, col = "#C00000"); axis(2, at = yy, labels = plot_tab$label, las = 1, cex.axis = 0.65); grid(col = "grey90")
+  yy <- seq_len(nrow(plot_tab)); plot(plot_tab$auc_model, yy, xlim = auc_xlim, ylim = c(0.5, nrow(plot_tab) + 0.5), pch = 16, col = "#1F4E78", xlab = "AUC (continuous model)", ylab = "", main = "A15 internal sensitivity: discrimination", yaxt = "n", cex = 0.85); segments(plot_tab$auc_low, yy, plot_tab$auc_high, yy, col = "#9DC3E6", lwd = 2); points(plot_tab$auc_model, yy, pch = 16, col = "#1F4E78", cex = 0.9); abline(v = summary_internal$auc_model[summary_internal$scenario == "primary model(unweighted, frozen)"][1], lty = 2, col = "#C00000"); axis(2, at = yy, labels = plot_tab$label, las = 1, cex.axis = 0.65); grid(col = "grey90")
   plot(plot_or$OR_plot, y2, log = "x", xlim = range(c(plot_or$low_plot, plot_or$high_plot, 1), na.rm = TRUE), ylim = c(0.5, nrow(plot_or) + 0.5), pch = 16, col = cols[plot_or$term_plot], xlab = "OR (log scale)", ylab = "", main = "A15: direction stability of key predictors", yaxt = "n", cex = 0.85); segments(plot_or$low_plot, y2, plot_or$high_plot, y2, col = cols[plot_or$term_plot], lwd = 2); points(plot_or$OR_plot, y2, pch = 16, col = cols[plot_or$term_plot], cex = 0.9); abline(v = 1, lty = 2, col = "grey40"); axis(2, at = y2, labels = paste0(plot_or$term_plot, " | ", plot_or$scenario), las = 1, cex.axis = 0.55); grid(col = "grey90"); legend("topright", legend = names(cols), col = cols, pch = 16, bty = "n", cex = 0.8)
   dev.off()
 }, error = function(e) { if (length(dev.list())) dev.off() })
 
 # ---------------------------------------------------------------------------
-# 11. 保存 RDS / sessionInfo
+# 11. save RDS / sessionInfo
 # ---------------------------------------------------------------------------
 saveRDS(list(main = main, broad = broad, main_ipw = main_ipw, pool_ipw = pool_ipw,
              model_main = model_main, fit_w = fit_w, fit_ipw = fit_ipw, fit_ipw_comb = fit_ipw_comb,
@@ -758,7 +758,7 @@ safe_write_lines(capture.output(sessionInfo()), file.path(OUT, "A15_sessionInfo_
 cat("A15 analyses completed.\n")
 
 # ---------------------------------------------------------------------------
-# 12. A15 报告
+# 12. A15 report
 # ---------------------------------------------------------------------------
 kable_md <- function(df) paste(capture.output(kable(df, format = "pipe", row.names = FALSE)), collapse = "\n")
 get_metric <- function(tab, scenario, col) {
@@ -771,13 +771,13 @@ get_or_triplet <- function(sc, term, pow = 1) {
   if (nrow(z) == 0) return(rep(NA_real_, 3))
   c(z$OR[1]^pow, z$OR_low[1]^pow, z$OR_high[1]^pow)
 }
-main_auc <- get_metric(summary_internal, "主模型（未加权，冻结）", "auc_model")
-w_auc <- get_metric(summary_internal, "2011权重+PSU（冻结模型）", "auc_model")
-w_refit_auc <- get_metric(summary_internal, "2011权重+PSU（重拟合）", "auc_model")
-ipw_auc <- get_metric(summary_internal, "IPW（冻结模型）", "auc_model")
-ipw_refit_auc <- get_metric(summary_internal, "IPW（重拟合）", "auc_model")
-broad_frozen_auc <- get_metric(summary_internal, "宽样本（主模型，冻结）", "auc_model")
-broad_refit_auc <- get_metric(summary_internal, "宽样本（重拟合）", "auc_model")
+main_auc <- get_metric(summary_internal, "primary model(unweighted, frozen)", "auc_model")
+w_auc <- get_metric(summary_internal, "2011 weights+PSU(frozen model)", "auc_model")
+w_refit_auc <- get_metric(summary_internal, "2011 weights+PSU(refit)", "auc_model")
+ipw_auc <- get_metric(summary_internal, "IPW(frozen model)", "auc_model")
+ipw_refit_auc <- get_metric(summary_internal, "IPW(refit)", "auc_model")
+broad_frozen_auc <- get_metric(summary_internal, "broader sample(primary model, frozen)", "auc_model")
+broad_refit_auc <- get_metric(summary_internal, "broader sample(refit)", "auc_model")
 cut_auc_range <- range(met_cut$auc_model, na.rm = TRUE)
 ext_s0 <- ext_cut %>% filter(cut_definition == "baseline_all_mean_sd") %>% arrange(cohort)
 ext_s1 <- ext_cut %>% filter(cut_definition == "complete_fu_mean_sd") %>% arrange(cohort)
@@ -785,10 +785,10 @@ ext_s2 <- ext_cut %>% filter(cut_definition == "fixed_charls_le4") %>% arrange(c
 max_smd_after <- max(abs(balance_ipw$smd_after), na.rm = TRUE)
 max_smd_before <- max(abs(balance_ipw$smd_before), na.rm = TRUE)
 
-or_show <- bind_rows(lapply(c("主模型（未加权）", "2011权重+PSU（重拟合）",
-                              "IPW（选择进入最终样本）", "宽样本（不要求五波 ms10 完整）",
-                              "宽样本 MICE m=20（结局缺失，MAR；含固定队列辅助变量）",
-                              "基线校正后跨阈值（含 mem2011）"), function(sc) {
+or_show <- bind_rows(lapply(c("primary model(unweighted)", "2011 weights+PSU(refit)",
+                              "IPW(selection into final sample)", "broader sample(five wave participation not required ms10 complete)",
+                              "broader sample MICE m=20(missing outcome, MAR; including fixed cohort auxiliary variables)",
+                              "threshold crossing after baseline adjustment(including mem2011)"), function(sc) {
   a <- get_or_triplet(sc, "age", 5); d <- get_or_triplet(sc, "dep", 1); e <- get_or_triplet(sc, "edu_groupHigh school or above", 1)
   data.frame(model = sc,
     age5 = fmt_ci(a[1], a[2], a[3]), depression = fmt_ci(d[1], d[2], d[3]),
@@ -796,133 +796,133 @@ or_show <- bind_rows(lapply(c("主模型（未加权）", "2011权重+PSU（重�
 }))
 
 weight_show <- met_weight %>%
-  transmute(场景 = scenario, n = format(n_model, big.mark = ","), 事件 = format(events_model, big.mark = ","),
-            `事件率（见注）` = sprintf("%.1f%%", 100*event_rate),
-            AUC = fmt_ci(auc_model, auc_low, auc_high), 校准斜率 = fmt(cal_slope, 2),
-            校准截距 = fmt(cal_intercept, 2), `Brier 分数` = fmt(brier, 4))
+  transmute(scenario = scenario, n = format(n_model, big.mark = ","), events = format(events_model, big.mark = ","),
+            `event_rate_see_note` = sprintf("%.1f%%", 100*event_rate),
+            AUC = fmt_ci(auc_model, auc_low, auc_high), calibration_slope = fmt(cal_slope, 2),
+            calibration_intercept = fmt(cal_intercept, 2), `Brier_score` = fmt(brier, 4))
 ipw_show <- met_ipw %>%
-  transmute(场景 = scenario, n = format(n_model, big.mark = ","), 事件 = format(events_model, big.mark = ","),
-            `事件率（见注）` = sprintf("%.1f%%", 100*event_rate),
-            AUC = fmt_ci(auc_model, auc_low, auc_high), 校准斜率 = fmt(cal_slope, 2),
-            校准截距 = fmt(cal_intercept, 2), `Brier 分数` = fmt(brier, 4))
+  transmute(scenario = scenario, n = format(n_model, big.mark = ","), events = format(events_model, big.mark = ","),
+            `event_rate_see_note` = sprintf("%.1f%%", 100*event_rate),
+            AUC = fmt_ci(auc_model, auc_low, auc_high), calibration_slope = fmt(cal_slope, 2),
+            calibration_intercept = fmt(cal_intercept, 2), `Brier_score` = fmt(brier, 4))
 t2018_show <- met_2018 %>%
-  transmute(场景 = scenario, n = format(n_model, big.mark = ","), 事件 = format(events_model, big.mark = ","),
-            事件率 = sprintf("%.1f%%", 100*event_rate),
-            AUC = fmt_ci(auc_model, auc_low, auc_high), 校准斜率 = fmt(cal_slope, 2),
-            校准截距 = fmt(cal_intercept, 2), `Brier 分数` = fmt(brier, 4))
+  transmute(scenario = scenario, n = format(n_model, big.mark = ","), events = format(events_model, big.mark = ","),
+            event_rate = sprintf("%.1f%%", 100*event_rate),
+            AUC = fmt_ci(auc_model, auc_low, auc_high), calibration_slope = fmt(cal_slope, 2),
+            calibration_intercept = fmt(cal_intercept, 2), `Brier_score` = fmt(brier, 4))
 cut_show <- met_cut %>%
-  transmute(切点 = scenario, n = format(n_model, big.mark = ","), 事件 = format(events_model, big.mark = ","),
-            事件率 = sprintf("%.1f%%", 100*event_rate),
-            AUC = fmt_ci(auc_model, auc_low, auc_high), 校准斜率 = fmt(cal_slope, 2),
-            校准截距 = fmt(cal_intercept, 2), `Brier 分数` = fmt(brier, 4))
+  transmute(cutoff = scenario, n = format(n_model, big.mark = ","), events = format(events_model, big.mark = ","),
+            event_rate = sprintf("%.1f%%", 100*event_rate),
+            AUC = fmt_ci(auc_model, auc_low, auc_high), calibration_slope = fmt(cal_slope, 2),
+            calibration_intercept = fmt(cal_intercept, 2), `Brier_score` = fmt(brier, 4))
 missing_show <- bind_rows(
-  met_broad %>% transmute(场景 = scenario, n = format(n_model, big.mark = ","), 事件 = format(round(events_model), big.mark = ","),
-                          事件率 = sprintf("%.1f%%", 100*event_rate),
-                          AUC = fmt_ci(auc_model, auc_low, auc_high), 校准斜率 = fmt(cal_slope, 2),
-                          校准截距 = fmt(cal_intercept, 2), `Brier 分数` = fmt(brier, 4)),
-  perf_cov_sum %>% transmute(场景 = scenario, n = format(n_model, big.mark = ","), 事件 = format(round(events_model), big.mark = ","),
-                             事件率 = sprintf("%.1f%%", 100*event_rate),
-                             AUC = paste0(fmt(auc_model, 6), "（插补间 ", fmt(auc_low, 6), "–", fmt(auc_high, 6), "）"),
-                             校准斜率 = fmt(cal_slope, 2), 校准截距 = fmt(cal_intercept, 2), `Brier 分数` = fmt(brier, 4)),
-  perf_out_sum %>% transmute(场景 = scenario, n = format(n_model, big.mark = ","), 事件 = paste0(format(events_model, big.mark = ","), "（插补均值）"),
-                             事件率 = sprintf("%.1f%%", 100*event_rate),
-                             AUC = paste0(fmt(auc_model, 6), "（插补间 ", fmt(auc_low, 6), "–", fmt(auc_high, 6), "）"),
-                             校准斜率 = fmt(cal_slope, 2), 校准截距 = fmt(cal_intercept, 2), `Brier 分数` = fmt(brier, 4))
+  met_broad %>% transmute(scenario = scenario, n = format(n_model, big.mark = ","), events = format(round(events_model), big.mark = ","),
+                          event_rate = sprintf("%.1f%%", 100*event_rate),
+                          AUC = fmt_ci(auc_model, auc_low, auc_high), calibration_slope = fmt(cal_slope, 2),
+                          calibration_intercept = fmt(cal_intercept, 2), `Brier_score` = fmt(brier, 4)),
+  perf_cov_sum %>% transmute(scenario = scenario, n = format(n_model, big.mark = ","), events = format(round(events_model), big.mark = ","),
+                             event_rate = sprintf("%.1f%%", 100*event_rate),
+                             AUC = paste0(fmt(auc_model, 6), "(between imputations ", fmt(auc_low, 6), "–", fmt(auc_high, 6), ")"),
+                             calibration_slope = fmt(cal_slope, 2), calibration_intercept = fmt(cal_intercept, 2), `Brier_score` = fmt(brier, 4)),
+  perf_out_sum %>% transmute(scenario = scenario, n = format(n_model, big.mark = ","), events = paste0(format(events_model, big.mark = ","), "(mean across imputations)"),
+                             event_rate = sprintf("%.1f%%", 100*event_rate),
+                             AUC = paste0(fmt(auc_model, 6), "(between imputations ", fmt(auc_low, 6), "–", fmt(auc_high, 6), ")"),
+                             calibration_slope = fmt(cal_slope, 2), calibration_intercept = fmt(cal_intercept, 2), `Brier_score` = fmt(brier, 4))
 )
 ext_show <- summary_external %>%
   filter(grepl("baseline_all_mean_sd|complete_fu_mean_sd|fixed_charls_le4", scenario)) %>%
-  transmute(场景 = scenario, n = n_model, 事件 = events_model, 事件率 = sprintf("%.1f%%", 100*event_rate),
-            AUC = fmt_ci(auc_model, auc_low, auc_high), 校准斜率 = fmt(cal_slope, 2),
-            校准截距 = fmt(cal_intercept, 2), Brier = fmt(brier, 4))
+  transmute(scenario = scenario, n = n_model, events = events_model, event_rate = sprintf("%.1f%%", 100*event_rate),
+            AUC = fmt_ci(auc_model, auc_low, auc_high), calibration_slope = fmt(cal_slope, 2),
+            calibration_intercept = fmt(cal_intercept, 2), Brier = fmt(brier, 4))
 
 report <- c(
-"# A15 敏感性分析结果（2026-09-26）", "",
-"> 任务：SAP v3 §10 与执行看板 A15——权重（survey design）、逆概率加权（IPW）、2018 年测量差异、切点、缺失分析。",
-"> 边界：不改变 A14 冻结模型（v1.0）、评分表、主切点和外部验证主口径；本报告全部为敏感性分析。主分析仍为 A14 的 CHARLS 固定队列完整病例分析，其他样本或插补结果不替换主分析。",
-"> 结论：在预设敏感性口径下，**主要结论方向稳定**；绝对风险、校准截距和 AUC（曲线下面积）会随分析人群或切点口径变化。", "",
-"## 一、分析口径与样本", "",
-kable_md(flow %>% mutate(n = format(n, big.mark = ",")) %>% rename(步骤 = step, 说明 = note)), "",
-"宽样本定义：仅要求 2011 年记忆分>4、2015 年记忆分可测且年龄、教育、抑郁、ADL 四变量完整，不要求 2013/2018/2020 年 ms10 完整。",
-"术语约定：报告中“主模型”均指 A14 冻结模型（v1.0）在原 4,441 人完整病例主样本中的表现；“重拟合”均为敏感性分析，不替代主模型。",
-paste0("主分析样本 n=", format(nrow(main), big.mark = ","), "，事件数=", format(sum(main$event), big.mark = ","), "（", sprintf("%.1f%%", 100*mean(main$event)), "）。"),
-paste0("宽样本 n=", format(nrow(broad), big.mark = ","), "，事件数=", format(sum(broad$event), big.mark = ","), "（", sprintf("%.1f%%", 100*mean(broad$event)), "）。"), "",
-"## 二、权重敏感性（2011 年基线个体权重 + communityID 为 PSU（初级抽样单元））", "",
+"# A15 sensitivity analysis results(2026-09-26)", "",
+"> task: SAP v3 §10 and execution board A15——weights(survey design), inverse probability weighting(IPW), 2018 year measurement differences, cutoff, missingness analysis.",
+"> boundaries: unchanged A14 frozen model(v1.0), score table, primary cutoff and primary external validation definition; all results in this report are sensitivity analyses.primary analysis remains A14 of CHARLS fixed cohort complete case analysis, other samples or imputation results do not replace primary analysis.",
+"> conclusion: under prespecified sensitivity definitions, **main conclusions directionally stable**; absolute risk, calibration intercept and AUC(area under curve)varies by analysis population or cutoff.", "",
+"## one, analysis definitions and samples", "",
+kable_md(flow %>% mutate(n = format(n, big.mark = ",")) %>% rename(steps = step, notes = note)), "",
+"broader sample definition: requires only 2011 year memory score>4, 2015 measurable memory in year and age, education, depression, ADL complete four variable data, not required 2013/2018/2020 year ms10 complete.",
+"terminology: in this report“primary model”all refer to A14 frozen model(v1.0)in original 4,441 participant complete case primary sample performance; “refit”all are sensitivity analyses, do not replace primary model.",
+paste0("primary analysis sample n=", format(nrow(main), big.mark = ","), ", event count=", format(sum(main$event), big.mark = ","), "(", sprintf("%.1f%%", 100*mean(main$event)), ")."),
+paste0("broader sample n=", format(nrow(broad), big.mark = ","), ", event count=", format(sum(broad$event), big.mark = ","), "(", sprintf("%.1f%%", 100*mean(broad$event)), ")."), "",
+"## two, weight sensitivity(2011 year baseline individual weights + communityID is PSU(primary sampling unit))", "",
 kable_md(weight_show), "",
-paste0("调查加权后事件率为 ", sprintf("%.1f%%", 100*weighted.mean(main$event, main$weight)), "；加权冻结模型 AUC=", fmt(w_auc), "，未加权主模型 AUC=", fmt(main_auc), "。"),
-"年龄、教育、抑郁和 ADL 的 OR（比值比）方向与主模型一致；权重设计见 `A15_权重_设计诊断.csv`。",
-"注意：加权重拟合行的校准斜率/截距是该加权模型在同一数据中的表观校准；冻结模型行用于评价 A14 固定公式在加权人群中的校准。",
-"表中“事件数”为未加权事件数；加权行的事件率为调查加权事件率（658/4,441 = 14.8%，加权后 15.1%）。", "",
-"## 三、IPW（逆概率加权）：选择进入最终分析样本的概率加权", "",
-paste0("IPW 目标池 n=", format(ipw_diag$selection_pool_n, big.mark = ","), "（2011 年年龄≥45 岁、基线记忆分>4 且选择模型变量完整），最终分析样本 n=", format(ipw_diag$selected_n, big.mark = ","), "；"),
-paste0("预测选择概率范围 ", fmt(ipw_diag$p_min, 3), "–", fmt(ipw_diag$p_max, 3), "；稳定化 IPW 的有效样本量 ", format(round(ipw_diag$effective_n), big.mark = ","), "。"),
-"选择模型纳入年龄、性别、教育、城乡、2011 记忆分、CES-D-10 和 ADL；系数与 OR 见 `A15_IPW_选择模型.csv`。",
-paste0("IPW 前最大 |SMD|（标准化均数差）=", fmt(max_smd_before, 3), "，IPW 后最大 |SMD|=", fmt(max_smd_after, 3), "。"),
+paste0("survey weighted event rate is ", sprintf("%.1f%%", 100*weighted.mean(main$event, main$weight)), "; weighted frozen model AUC=", fmt(w_auc), ", unweighted primary model AUC=", fmt(main_auc), "."),
+"age, education, depression and ADL of OR(odds ratio)direction consistent with primary model; weight design in `A15_weights_design_diagnostics.csv`.",
+"note: calibration slope in weighted refit row/intercept is apparent calibration of weighted model on same data; frozen model row evaluates A14 calibration of fixed formula in weighted population.",
+"in the table“event count”is the unweighted event count; weighted row reports survey weighted event rate(658/4,441 = 14.8%, after weighting 15.1%).", "",
+"## three, IPW(inverse probability weighting): probability weighting for selection into final sample", "",
+paste0("IPW target pool n=", format(ipw_diag$selection_pool_n, big.mark = ","), "(2011 age in year≥45 years old, baseline memory score>4 and complete selection model variables), final analysis sample n=", format(ipw_diag$selected_n, big.mark = ","), "; "),
+paste0("range of predicted selection probabilities ", fmt(ipw_diag$p_min, 3), "–", fmt(ipw_diag$p_max, 3), "; stabilized IPW effective sample size of ", format(round(ipw_diag$effective_n), big.mark = ","), "."),
+"selection model includes age, sex, education, urban or rural, 2011 memory score, CES-D-10 and ADL; coefficients and OR see `A15_IPW_selection_model.csv`.",
+paste0("IPW maximum before |SMD|(standardized mean difference)=", fmt(max_smd_before, 3), ", IPW maximum after |SMD|=", fmt(max_smd_after, 3), "."),
 kable_md(ipw_show), "",
-paste0("IPW 冻结模型 AUC=", fmt(ipw_auc), "；IPW 重拟合模型 AUC=", fmt(ipw_refit_auc), "。"),
-"IPW 后年龄、教育、抑郁的 OR 方向与主模型一致，ADL 的关联仍接近零；未测量的选择因素和死亡不能由 IPW 校正。",
-"IPW 目标池仅包含选择模型变量完整的 10,326 人；ADL 等选择变量缺失者未纳入 IPW。",
-"表中“事件数”为未加权事件数；IPW 行的事件率为 IPW 加权事件率（未加权 14.8%，加权后 16.6%）。", "",
-"后文替代结局表中的“IPW（选择进入最终样本）”与本节的 IPW 重拟合模型为同一模型。", "",
-"## 四、2018 年测量差异", "",
-"主结局为 2011→2015 记忆分跨阈值，**2018 年测量差异不直接进入主结局**。",
-"本节按 T09 预设口径，分别限制为 2018 年满 60 岁、2018 年即时与延迟回忆均完整，以及两者同时满足；重跑同一四变量模型（年龄、教育、抑郁、ADL）。",
+paste0("IPW frozen model AUC=", fmt(ipw_auc), "; IPW refitted model AUC=", fmt(ipw_refit_auc), "."),
+"IPW age after, education, depression values OR direction consistent with primary model, ADL association remains close to zero; unmeasured selection and death cannot be addressed by IPW adjustment.",
+"IPW target pool includes only complete selection model variables 10,326 participants; ADL participants missing selection variables excluded IPW.",
+"in the table“event count”is the unweighted event count; IPW event rate in row is IPW weighted event rate(unweighted 14.8%, after weighting 16.6%).", "",
+"in subsequent alternative outcome table“IPW(selection into final sample)”and in this section IPW refitted model is the same model.", "",
+"## four, 2018 year measurement differences", "",
+"primary outcome is 2011→2015 memory score threshold crossing, **2018 year measurement differences do not enter primary outcome directly**.",
+"this section follows T09 prespecified definition, restricted respectively to 2018 aged at least 60 years old, 2018 complete immediate and delayed recall in year, and satisfying both criteria; refit same four variable model(age, education, depression, ADL).",
 kable_md(t2018_show), "",
-"三种限制下 OR 方向与主模型一致；AUC 0.677–0.698，较主样本轻度下降，但仍保持中等区分度；T09 报告的 2015→2018 共同题集变化在限 ≥60 岁或记忆完整者中方向一致（见 T09 报告）。",
-"说明：T09 报告的 n=3,761（≥60 岁）为 ms10 五波固定队列；本表 n=2,872（≥60 岁）为最终记忆结局风险样本（基线未受损、2015 记忆可用、四变量完整），两者样本口径不同，不应直接比较样本量。",
-"因此不能把 2018 模块差异作为主结论的替代解释，但也不得写成“已证明完全测量等值”。", "",
-"## 五、切点与结局定义敏感性", "",
+"under three restrictions OR direction consistent with primary model; AUC 0.677–0.698, slightly lower than primary sample, but retains moderate discrimination; T09 reported 2015→2018 common item change under restriction ≥60 direction consistent in age eligible or memory complete participants(see T09 report).",
+"notes: T09 reported n=3,761(≥60 years old)is ms10 five wave fixed cohort; this table n=2,872(≥60 years old)is final memory outcome risk sample(unimpaired at baseline, 2015 memory available, complete four variable data), sample definitions differ, sample sizes should not be directly compared.",
+"therefore cannot treat 2018 module differences as alternative explanation of primary conclusion, but also must not state“complete measurement equivalence demonstrated”.", "",
+"## five, cutoff and outcome definition sensitivity", "",
 kable_md(cut_show), "",
-"表中“内部切点 ≤t”表示基线记忆分>t、随访记忆分≤t，即基线与随访阈值同时改变。",
-paste0("内部切点 ≤3–≤6 的 AUC 范围为 ", fmt(cut_auc_range[1]), "–", fmt(cut_auc_range[2]), "。"),
-paste0("2011 主切点 raw=", fmt(cut_note$raw_cut[1], 3), "，按预先规定的 floor（向下取整）规则为 ≤", cut_note$integer_cut[1], "；2015 在同一风险集重估 raw=", fmt(cut_note$raw_cut[2], 3), "，按 floor 规则仍为 ≤", cut_note$integer_cut[2], "。"),
-"补充：若采用四舍五入，2015 切点为 ≤5；A15 已报告完整 ≤5 切点敏感性（AUC 0.706），主结论不变。",
-"外部切点口径：S0=各队列基线全样本 mean−1SD（均值−1 个标准差）；S1=complete-fu mean−1SD；S2=固定 CHARLS ≤4。另检查抑郁替代切点、score_alt（教育位置编码）和 ELSA 年龄 90 顶码，见 `A15_切点_外部汇总.csv` 与 `A15_切点_外部补充敏感性.csv`。",
-"", "### 替代结局定义", "",
-kable_md(or_show %>% rename(模型 = model, `年龄（每5岁）` = age5, 抑郁 = depression, `教育：高中及以上` = education_high)), "",
-"未校正连续变化（Δ=2015 记忆分−2011 记忆分）受基线位置和回归均值影响：抑郁、ADL 与 Δ 的关联方向可与主结局的 OR 方向相反。",
-"在基线校正后的连续变化模型和跨阈值模型（均含 2011 记忆分）中，年龄、教育、抑郁的关联方向与主结局一致，ADL 的关联仍接近零。",
-"因此 A15 不建议用未校正连续变化替代主结局；主结局仍为 4 年跨阈值。",
-"注意：基线校正跨阈值模型额外纳入 2011 记忆分，其 AUC 不可与主模型 AUC 直接比较；该模型仅用于回归均值和方向敏感性。", "",
-"## 六、缺失与选择分析", "",
+"in the table“internal cutoff ≤t”denotes baseline memory score>t, follow up memory score≤t, both baseline and follow up thresholds change.",
+paste0("internal cutoff ≤3–≤6 of AUC range is ", fmt(cut_auc_range[1]), "–", fmt(cut_auc_range[2]), "."),
+paste0("2011 primary cutoff raw=", fmt(cut_note$raw_cut[1], 3), ", as prespecified floor(round down)rule is ≤", cut_note$integer_cut[1], "; 2015 reestimate within same risk set raw=", fmt(cut_note$raw_cut[2], 3), ", by floor rule remains ≤", cut_note$integer_cut[2], "."),
+"supplementary: if ordinary rounding used, 2015 cutoff is ≤5; A15 full results reported ≤5 cutoff sensitivity(AUC 0.706), primary conclusion unchanged.",
+"external cutoff definition: S0=full baseline sample in each cohort mean−1SD(mean−1 standard deviations); S1=complete-fu mean−1SD; S2=fixed CHARLS ≤4.also check alternative depression cutoff, score_alt(positional education coding)and ELSA age 90 top coding, see `A15_cutoff_external_summary.csv` and `A15_cutoff_additional_external_sensitivity.csv`.",
+"", "### alternative outcome definition", "",
+kable_md(or_show %>% rename(model = model, `age_per_5_years` = age5, depression = depression, `education_high_school_or_above` = education_high)), "",
+"unadjusted continuous change(Δ=2015 memory score−2011 memory score)affected by baseline position and regression to mean: depression, ADL and Δ association direction may differ from primary outcome OR opposite direction.",
+"in baseline adjusted change and threshold crossing models(both include 2011 memory score)in, age, education, depression direction agrees with primary outcome, ADL association remains close to zero.",
+"therefore A15 unadjusted continuous change should not replace primary outcome; primary outcome remains 4 year threshold crossing.",
+"note: baseline adjusted threshold crossing model additionally includes 2011 memory score, its AUC not comparable with primary model AUC direct comparison; model only assesses regression to mean and directional sensitivity.", "",
+"## six, missingness and selection analysis", "",
 kable_md(missing_show), "",
-"表中“固定队列（主模型，冻结）”指 A14 冻结模型在原 4,441 人主样本；“宽样本（主模型，冻结）”指将 A14 冻结模型应用于 8,296 人宽样本；“宽样本（重拟合）”指在宽样本中重拟合同一四变量模型。",
-"MICE 行括号内为 20 次插补的 2.5%–97.5% 插补间范围，不是抽样分布或置信区间；其余未加权行的括号为 DeLong 95% CI，加权/IPW 行为 cluster bootstrap 95% CI。",
-"MICE 连续模型在每个插补数据集中重新拟合并在同一数据上评价，属于表观性能；校准斜率约1、截距约0不代表外部校准。整数评分固定应用原评分规则。结局缺失分析的事件数为20次插补的平均值，不是实际观察到的整数事件数。",
-paste0("宽样本（不要求五波 ms10 完整）冻结模型 AUC=", fmt(broad_frozen_auc), "；宽样本重拟合 AUC=", fmt(broad_refit_auc), "。"),
-paste0("MICE（多重插补，m=20）协变量缺失 AUC=", fmt(perf_cov_sum$auc_model), "；结局缺失 AUC=", fmt(perf_out_sum$auc_model), "。"),
-"放宽固定队列后事件率明显升高、校准截距改变，说明固定队列选择影响绝对风险；但年龄、教育、抑郁方向稳定。",
-"外部 ADL 缺失敏感性：HRS 和 SHARE 中，完整病例分析与 ADL=0 插补相比 AUC 差异均很小；整数分不受 ADL 缺失影响。",
-"外部 ADL 缺失的 Brier 分数在不同样本间不可直接比较，应以 AUC 差异为主。",
-"结局缺失的多重插补模型将固定队列指示变量作为辅助变量；结果为 MAR（缺失随机）假设下的敏感性，不等于缺失机制可忽略。",
-"MICE 插补变量包括年龄、性别、教育、城乡、2011 记忆分、CES-D、ADL、睡眠、疼痛、高血压、糖尿病、卒中、2011 ms10 和固定队列指示变量；分析模型仍固定为四变量。",
-"FigureS8 左图未纳入 MICE 行（其区间为插补间范围），MICE 结果见本节表。", "",
-"### SAP §10 其余条目", "",
-"| SAP 条目 | A15 处理 |", "|---|---|",
-"| S6 不含争议变量（疼痛/睡眠/PA） | 最终 A14 模型本就不含这些变量；主分析已满足，不另设模型。 |",
-"| S7 结局③连续两波确认 | 记忆分仅 2011/2015 两波，无法构造连续两波确认；已以连续变化和下降≥2分替代。 |",
-"| S8 ADL/IADL 计数版 | ADL 二分保留在连续模型但计 0 分；IADL 已在 A01/T1 排除主评分，不重开主模型。 |",
-"| S9 SHARE 替代结局 | SHARE 外部验证已使用回忆分，见 A12/A15 外部汇总。 |",
-"| S10 基线校正 | 已做基线校正连续变化与基线校正跨阈值模型。 |", "",
-"## 七、总体稳定性判定", "",
-kable_md(stability %>% rename(领域 = domain, 结论 = conclusion, 判定 = status)), "",
-"**综合结论**：A15 未发现足以推翻 A14 最终模型方向稳定性的证据。",
-"权重、IPW、2018 年测量差异限制、内部切点和 MICE 缺失分析中，年龄、教育、抑郁和 ADL 的关联方向保持一致；外部队列 S0/S1/S2 及替代切点的区分度保持稳定；",
-"但宽样本和结局缺失插补分析显示事件率、校准截距和绝对风险会变化；论文应表述为：工具用于筛查/分流，不用于解释固定绝对风险。",
-"局限：IPW 不能校正未测量的选择因素和死亡；结局多重插补以 MAR（缺失随机）为假设，且未处理竞争风险；这些结果仅用于敏感性解释，不替代主分析。", "",
-"## 八、输出文件", "",
-"- `A15_样本流向_2026-09-26.csv`",
-"- `A15_权重_设计诊断.csv`、`A15_权重_模型比较.csv`、`A15_权重_性能比较.csv`",
-"- `A15_IPW_诊断.csv`、`A15_IPW_选择模型.csv`、`A15_IPW_平衡.csv`、`A15_IPW_模型比较.csv`、`A15_IPW_性能比较.csv`",
-"- `A15_2018测量差异_模型比较.csv`、`A15_2018测量差异_性能比较.csv`",
-"- `A15_切点_内部模型比较.csv`、`A15_切点_内部性能比较.csv`、`A15_切点_定义汇总.csv`、`A15_切点_外部汇总.csv`、`A15_切点_外部补充敏感性.csv`",
-"- `A15_结局定义_连续变化模型.csv`、`A15_结局定义_模型比较.csv`、`A15_结局定义_性能比较.csv`",
-"- `A15_缺失_固定队列与宽样本比较.csv`、`A15_缺失_宽样本模型比较.csv`、`A15_缺失_宽样本性能比较.csv`",
-"- `A15_缺失_MICE_协变量_系数.csv`、`A15_缺失_MICE_协变量_性能汇总.csv`、`A15_缺失_MICE_结局_系数.csv`、`A15_缺失_MICE_结局_性能汇总.csv`",
-"- `A15_缺失_外部ADL敏感性.csv`",
-"- `A15_内部敏感性汇总.csv`、`A15_外部敏感性汇总.csv`、`A15_关键OR方向稳定性.csv`、`A15_结论稳定性判定.csv`",
+"in the table“fixed cohort(primary model, frozen)”means A14 frozen model in original 4,441 participant primary sample; “broader sample(primary model, frozen)”means applying A14 frozen model to 8,296 participant broader sample; “broader sample(refit)”means refitting same four variable model in broader sample.",
+"MICE parentheses in this row show 20 across imputations 2.5%–97.5% between imputation range, not a sampling distribution or confidence interval; parentheses in other unweighted rows show DeLong 95% CI, weighted/IPW row represents cluster bootstrap 95% CI.",
+"MICE continuous model refitted and evaluated in each imputed dataset, represents apparent performance; calibration slope approximately 1, intercept approximately 0 does not represent external calibration.integer score applies the original fixed rules.event count in missing outcome analysis is 20 mean across imputations, not an observed integer event count.",
+paste0("broader sample(five wave participation not required ms10 complete)frozen model AUC=", fmt(broad_frozen_auc), "; broader sample refit AUC=", fmt(broad_refit_auc), "."),
+paste0("MICE(multiple imputation, m=20)missing covariates AUC=", fmt(perf_cov_sum$auc_model), "; missing outcome AUC=", fmt(perf_out_sum$auc_model), "."),
+"event rate increases after relaxing fixed cohort restriction, calibration intercept changes, fixed cohort selection affects absolute risk; but age, education, depression direction stable.",
+"external ADL missing data sensitivity: HRS and SHARE in, complete case analysis and ADL=0 compared with imputation AUC differences are small; integer score unaffected by ADL missingness.",
+"external ADL missing Brier scores not directly comparable across different samples, emphasize AUC differences primarily.",
+"outcome imputation includes fixed cohort indicator as auxiliary variable; result is MAR(missing at random)sensitivity under assumption, does not imply ignorable missingness mechanism.",
+"MICE imputation variables include age, sex, education, urban or rural, 2011 memory score, CES-D, ADL, sleep, pain, hypertension, diabetes, stroke, 2011 ms10 and fixed cohort indicator; analysis model remains four variables.",
+"FigureS8 left panel excludes MICE rows(interval represents between imputation range), MICE see results table in this section.", "",
+"### SAP §10 remaining items", "",
+"| SAP items | A15 handling |", "|---|---|",
+"| S6 excludes disputed variables(pain/sleep/PA) | final A14 model already excludes these variables; primary analysis already satisfies, no separate model. |",
+"| S7 outcome ③ confirmed at two consecutive waves | memory scores only 2011/2015 two waves, cannot construct two consecutive wave confirmation; continuous change and decline already used≥2 points as alternative. |",
+"| S8 ADL/IADL count version | ADL binary term retained in continuous model but scores 0 points; IADL already in A01/T1 exclude from primary score, do not reopen primary model. |",
+"| S9 SHARE alternative outcomes | SHARE external validation already uses recall scores, see A12/A15 external summary. |",
+"| S10 baseline adjustment | baseline adjusted change and threshold crossing models completed. |", "",
+"## seven, overall stability assessment", "",
+kable_md(stability %>% rename(domain = domain, conclusion = conclusion, assessment = status)), "",
+"**overall conclusion**: A15 no evidence sufficient to overturn A14 directional stability of final model.",
+"weights, IPW, 2018 year measurement difference restrictions, internal cutoffs and MICE in missingness analysis, age, education, depression and ADL association directions remain consistent; external cohort S0/S1/S2 discrimination stable under alternative cutoffs; ",
+"but broader sample and outcome imputation show event rate, calibration intercept and absolute risk changes; manuscript should state: tool is for screening/triage, not for fixed absolute risk interpretation.",
+"limitations: IPW cannot adjust unmeasured selection and death; outcome multiple imputation assumes MAR(missing at random)as assumption, competing risks unaddressed; results for sensitivity interpretation only, do not replace primary analysis.", "",
+"## eight, output file", "",
+"- `A15_sample_flow_2026_09_26.csv`",
+"- `A15_weights_design_diagnostics.csv`, `A15_weights_model_comparison.csv`, `A15_weights_performance_comparison.csv`",
+"- `A15_IPW_diagnostics.csv`, `A15_IPW_selection_model.csv`, `A15_IPW_balance.csv`, `A15_IPW_model_comparison.csv`, `A15_IPW_performance_comparison.csv`",
+"- `A15_2018_measurement_differences_model_comparison.csv`, `A15_2018_measurement_differences_performance_comparison.csv`",
+"- `A15_cutoff_internal_model_comparison.csv`, `A15_cutoff_internal_performance_comparison.csv`, `A15_cutoff_definition_summary.csv`, `A15_cutoff_external_summary.csv`, `A15_cutoff_additional_external_sensitivity.csv`",
+"- `A15_outcome_definition_continuous_change_model.csv`, `A15_outcome_definition_model_comparison.csv`, `A15_outcome_definition_performance_comparison.csv`",
+"- `A15_missing_fixed_cohort_versus_broader_sample.csv`, `A15_missing_broader_sample_model_comparison.csv`, `A15_missing_broader_sample_performance_comparison.csv`",
+"- `A15_missing_MICE_covariates_coefficients.csv`, `A15_missing_MICE_covariates_performance_summary.csv`, `A15_missing_MICE_outcome_coefficients.csv`, `A15_missing_MICE_outcome_performance_summary.csv`",
+"- `A15_missing_external_ADL_sensitivity.csv`",
+"- `A15_internal_sensitivity_summary.csv`, `A15_external_sensitivity_summary.csv`, `A15_key_OR_directional_stability.csv`, `A15_assessment_of_conclusion_stability.csv`",
 "- `FigureS8_A15_sensitivity_2026-09-26.png/.tif`",
-"- `A15_results_2026-09-26.rds`、`A15_sessionInfo_2026-09-26.txt`",
+"- `A15_results_2026-09-26.rds`, `A15_sessionInfo_2026-09-26.txt`",
 ""
 )
-safe_write_lines(report, file.path(OUT, "A15_敏感性分析报告_2026-09-26.md"), useBytes = TRUE)
+safe_write_lines(report, file.path(OUT, "A15_sensitivity_analysis_report_2026_09_26.md"), useBytes = TRUE)
 cat("A15 report written.\n")

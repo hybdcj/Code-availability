@@ -1,169 +1,169 @@
-# 五波变量映射表（纵向分析用）· v0.1
+# five wave variable mapping table(for longitudinal analysis)· v0.1
 
-> 建立日期：2026-09-13 ｜ 状态：**进行中**（2011/2013/2015 已核对，2018 待补，2020 已有成品）
-> 依据：各波原始 `.dta` 的变量标签（脚本 `code/_checks/map_cognition_vars.R`，输出 `output/02_五波数据与质控/cognition_vars_by_wave.csv`）+ Harmonized D codebook
-> 原则：**与前四波相比，2020 期成品（`output/01_2020单期基线/analysis_2020.rds`）的口径为基准**；五波必须用同一套 9 分项定义
+> creation date: 2026-09-13 ｜ status: **in progress**(2011/2013/2015 verified, 2018 to add, 2020 existing prepared outputs)
+> basis: raw data for each wave `.dta` variable labels(scripts `code/_checks/map_cognition_vars.R`, output `output/02_five_wave_data_and_quality_control/cognition_vars_by_wave.csv`)+ Harmonized D codebook
+> principle: **compared with first four waves, 2020 prepared wave output(`output/01_2020_single_wave_baseline/analysis_2020.rds`)definition as reference**; all five waves must use identical 9 component definitions
 
 ---
 
-## 一、结论：走"原始模块逐波重建"路线（路线 B）
+## one, conclusion: use"reconstruct from raw modules by wave"route(route B)
 
-经核对，**Harmonized D 不能直接用于本课题的认知口径**：
+verified, **Harmonized D not directly suitable for this study cognitive definition**: 
 
-| 项目 | Harmonized D（r1–r4） | 本课题 2020 口径 | 是否可用 |
+| project | Harmonized D(r1–r4) | this study 2020 definition | availability |
 |---|---|---|---|
-| 定向 | `r*orient` ＝"summary date naming"，**0–4 分** | 5 项（年/月/日/星期/季），**0–5 分** | ✗ 定义不同 |
-| 即时/延迟回忆 | `r*imrc` / `r*dlrc`（0–10） | 同（0–10） | ✓ |
-| 连续减 7 | `r*ser7`（0–5） | 同（0–5） | ✓ |
-| 画图 | `r*draw`（0–1） | 同（0–1） | ✓ |
-| CES-D | `r*cesd10`（0–30） | 同（0–30，≥10 为界） | ✓ |
-| ADL | `r*adla_c`(0–4) / `r*adlab_c`(0–6) / `r*adlfive`(0–5) | 6 项 ADL | △ 需选一致版本 |
-| IADL | `r*iadla`（0–3，**仅 r2–r4**） | 5 项 IADL（做家务/做饭/购物/理财/服药） | ⚠️ 2011 期有原始条目（`db016`–`db020`）与 Harmonized 单条目（`r1moneya` 等），但**无汇总变量**（汇总含"打电话"，该题第 2 波才加） |
-| 睡眠时长 / 疼痛 / 体力活动 | **均无** | 有 | ✗ 需从原始模块取 |
-| 权重 | `r*wtresp` | `INDV_weight` | △ 可作核对 |
+| orientation | `r*orient` ＝"summary date naming", **0–4 points** | 5 items(year/month/day/day of week/season), **0–5 points** | ✗ different definition |
+| immediate/delayed recall | `r*imrc` / `r*dlrc`(0–10) | same(0–10) | ✓ |
+| serial subtraction of 7 | `r*ser7`(0–5) | same(0–5) | ✓ |
+| figure copying | `r*draw`(0–1) | same(0–1) | ✓ |
+| CES-D | `r*cesd10`(0–30) | same(0–30, ≥10 as boundary) | ✓ |
+| ADL | `r*adla_c`(0–4) / `r*adlab_c`(0–6) / `r*adlfive`(0–5) | 6 items ADL | △ select consistent version |
+| IADL | `r*iadla`(0–3, **only r2–r4**) | 5 items IADL(housework/preparing meals/shopping/managing finances/taking medication) | ⚠️ 2011 raw items available this wave(`db016`–`db020`)and Harmonized single item(`r1moneya` etc), but**no summary variable**(summary includes"making telephone calls", this item at wave 2 first added) |
+| sleep duration / pain / physical activity | **absent in all** | present | ✗ obtain from raw modules |
+| weights | `r*wtresp` | `INDV_weight` | △ can be used for verification |
 
-→ 因此：**认知与其他暴露变量一律从各波原始模块按 2020 口径重建**；Harmonized D 仅用于交叉核对（ADL/IADL/慢病/教育与权重）。
+→ therefore: **cognition and other exposures taken from raw modules using 2020 reconstruct definitions**; Harmonized D cross checking only(ADL/IADL/chronic conditions/education and weights).
 
-## 二、认知 9 分项：逐波变量名
+## two, cognition 9 components: variable names by wave
 
-### 2.1 2011（`wave1_2011/health_status_and_functioning.dta`）✓ 已核对
+### 2.1 2011(`wave1_2011/health_status_and_functioning.dta`)✓ verified
 
-| 分项 | 变量 | 备注 |
+| components | variables | notes |
 |---|---|---|
-| 定向-年 / 月 / 日 | `dc001s1` / `dc001s2` / `dc001s3` | 标签 "Year / Month / Day Is Correct" |
-| 定向-星期 | `dc002` | Checking Day of Week |
-| 定向-季节 | `dc003` | Checking Season |
-| 连续减 7（5 步） | `dc019`(100−7)、`dc020`–`dc023` | 与 2020 的 dc007_1..5 对应 |
-| 图形绘制 | `dc025` | Drew the Picture or Failed |
-| 即时回忆（试次 1） | `dc006s1`–`dc006s10`（+`dc006s11` 标记位） | 词表版本 `dc006_version` |
-| 延迟回忆 | `dc027s1`–`dc027s10`（+`dc027s11` 标记位） | Recall Words |
-| CES-D-10 | `dc009`–`dc018`（共 10 题） | `dc015` = "Sleep Was Restless"，与 2020 的 `dc022` 同源 |
+| orientation-year / month / day | `dc001s1` / `dc001s2` / `dc001s3` | label "Year / Month / Day Is Correct" |
+| orientation-day of week | `dc002` | Checking Day of Week |
+| orientation-season | `dc003` | Checking Season |
+| serial subtraction of 7(5 step) | `dc019`(100−7), `dc020`–`dc023` | and 2020 of dc007_1..5 corresponding |
+| plotting | `dc025` | Drew the Picture or Failed |
+| immediate recall(trial 1) | `dc006s1`–`dc006s10`(+`dc006s11` indicator flags) | word list version `dc006_version` |
+| delayed recall | `dc027s1`–`dc027s10`(+`dc027s11` indicator flags) | Recall Words |
+| CES-D-10 | `dc009`–`dc018`(total 10 questions) | `dc015` = "Sleep Was Restless", and 2020 of `dc022` same source |
 
-### 2.2 2013（`wave2_2013/Health_Status_and_Functioning.dta`）✓ 已核对
+### 2.2 2013(`wave2_2013/Health_Status_and_Functioning.dta`)✓ verified
 
-| 分项 | 变量 | 备注 |
+| components | variables | notes |
 |---|---|---|
-| 定向 5 项 | `dc001s1`,`dc001s2`,`dc001s3`,`dc002`,`dc003` | Checking Date / Day of Week / Season |
-| 连续减 7 | `dc019`–`dc023` | 100−7 起 |
-| 图形绘制 | `dc025` | Draw Picture |
-| 即时回忆 | `dc006_1_s1`–`s11`（试次 1）、`dc006_2_*`、`dc006_3_*`（试次 2、3） | **三次学习试次**；取试次 1 与 2020 可比 |
-| 延迟回忆 | `dc027s1`–`s11` | Recall Words |
+| orientation 5 items | `dc001s1`,`dc001s2`,`dc001s3`,`dc002`,`dc003` | Checking Date / Day of Week / Season |
+| serial subtraction of 7 | `dc019`–`dc023` | 100−7 onward |
+| plotting | `dc025` | Draw Picture |
+| immediate recall | `dc006_1_s1`–`s11`(trial 1), `dc006_2_*`, `dc006_3_*`(trial 2, 3) | **three learning trials**; use trial 1 and 2020 comparable |
+| delayed recall | `dc027s1`–`s11` | Recall Words |
 | CES-D-10 | `dc009`–`dc018` | `dc015` = My Sleep Was Restless |
 
-### 2.3 2015（`wave3_2015/Health_Status_and_Functioning.dta`）✓ 已核对
+### 2.3 2015(`wave3_2015/Health_Status_and_Functioning.dta`)✓ verified
 
-| 分项 | 变量 | 备注 |
+| components | variables | notes |
 |---|---|---|
-| 定向 5 项 | `dc001s1`,`dc001s2`,`dc001s3`,`dc002`,`dc003` | checking date / day of week / season |
-| 连续减 7 | `dc019`–`dc023` | 100 minus 7 起 |
-| 图形绘制 | `dc025` | Draw picture |
-| 即时回忆 | `dc006s1`–`dc006s12`（含标记位） | 词表 `dc006_wordlist_1_`–`_10_` |
-| 延迟回忆 | `dc027s1`–`dc027s12` | Recall Words |
+| orientation 5 items | `dc001s1`,`dc001s2`,`dc001s3`,`dc002`,`dc003` | checking date / day of week / season |
+| serial subtraction of 7 | `dc019`–`dc023` | 100 minus 7 onward |
+| plotting | `dc025` | Draw picture |
+| immediate recall | `dc006s1`–`dc006s12`(including indicator flags) | word list `dc006_wordlist_1_`–`_10_` |
+| delayed recall | `dc027s1`–`dc027s12` | Recall Words |
 | CES-D-10 | `dc009`–`dc018` | `dc015` = My Sleep Was Restless |
-| （附加）数列题 | `dc029_w3`–`dc035_w3` | 2015 新增的数列题，本课题不用 |
+| (additional)number series items | `dc029_w3`–`dc035_w3` | 2015 new number series items, not used in study |
 
-### 2.4 2018（`wave4_2018/Cognition.dta`，219 个变量）✓ 已核对（**有重要差异**）
+### 2.4 2018(`wave4_2018/Cognition.dta`, 219 variables)✓ verified(**important differences**)
 
-| 分项 | 变量 | 说明 |
+| components | variables | notes |
 |---|---|---|
-| 定向 5 项 | `dc001_w4`(年)、`dc006_w4`(月)、`dc005_w4`(日/星期)、`dc003_w4`(日期)、`dc002_w4`(季) | 标签为 Checking Year / Month / Day / Date / Season，**共 5 项**，方向与其他波一致，但**编号顺序完全不同**（2020 是 dc001–dc005 顺序对应年/季/日/星期/月） |
-| 连续减 7 | `dc014_w4_1` … `dc014_w4_5`（答案在 `_1_`） | 5 步，结构同 2020 |
-| **即时回忆（主口径）** | `dc028_w4_s1`–`s10`（Butter/Arm/Shore/…，10 词）+ `s11`(None) + `s12`(Refused) | ✅ 与其余四波同为 **10 词表**；问卷 PROCEDURE 规定 45 岁以上全样本施测（本课题取试次 1；另有试次 2/3 = `dc029_w4_s*` / `dc030_w4_s*`） |
-| **延迟回忆（主口径）** | `dc047_w4_s1`–`s10`（同一套 10 词）+ `s11`(None) + `s12`(Refused) | ✅ 全样本施测（n=15,688） |
-| 即时/延迟回忆（**不用于纵向**） | `dc013_w4_1_s1`–`s3`（Ball/Flag/Tree，3 词，5 次试次）、`dc015_w4_s1`–`s3` | ⚠️ 只对 **60 岁以上**施测（n=9,989 / 8,984），属 MMSE 子集，不能与其他波的 10 词表混用 |
-| 画图 | `dc024_w4`（复制重叠五边形：1=对 / 5=错 / 97=未评估） | ✅ 2018 **有**画图项，且为全样本施测（n=18,155） |
-| 附加题组 | `dc016_w4`–`dc023_w4`（Watch / Pencil / Repeat / Read / Hand / Folds / Leg / Sentence Correct） | 2018 新增的操作指令题，本课题不使用 |
+| orientation 5 items | `dc001_w4`(year), `dc006_w4`(month), `dc005_w4`(day/day of week), `dc003_w4`(date), `dc002_w4`(season) | label is Checking Year / Month / Day / Date / Season, **total 5 items**, direction consistent with other waves, but**numbering order completely different**(2020 yes dc001–dc005 order corresponds to year/season/day/day of week/month) |
+| serial subtraction of 7 | `dc014_w4_1` … `dc014_w4_5`(answers in `_1_`) | 5 step, same structure as 2020 |
+| **immediate recall(primary definition)** | `dc028_w4_s1`–`s10`(Butter/Arm/Shore/…, 10 words)+ `s11`(None) + `s12`(Refused) | ✅ same as other four waves **10 word list**; questionnaire PROCEDURE specifies 45 assessed in full sample above age(study uses trial 1; additional trial 2/3 = `dc029_w4_s*` / `dc030_w4_s*`) |
+| **delayed recall(primary definition)** | `dc047_w4_s1`–`s10`(same set 10 words)+ `s11`(None) + `s12`(Refused) | ✅ administered to full sample(n=15,688) |
+| immediate/delayed recall(**not used longitudinally**) | `dc013_w4_1_s1`–`s3`(Ball/Flag/Tree, 3 words, 5 trials), `dc015_w4_s1`–`s3` | ⚠️ only for **60 years and older**administered(n=9,989 / 8,984), belongs to MMSE subset, cannot combine with other waves 10 word lists |
+| figure copying | `dc024_w4`(copy overlapping pentagons: 1=for / 5=incorrect / 97=not assessed) | ✅ 2018 **present**figure copying item, and administered to full sample(n=18,155) |
+| additional item block | `dc016_w4`–`dc023_w4`(Watch / Pencil / Repeat / Read / Hand / Folds / Leg / Sentence Correct) | 2018 new instruction following items, not used in this study |
 
-> 🔧 **2026-09-13 修正**：本节此前把 `dc013_w4_1` / `dc015_w4` 误当作 2018 的"词语回忆"，据此得出"2018 只有 3 个词、无画图项"的结论。核对问卷 PROCEDURE 后已改为主口径 10 词表 + `dc024_w4` 画图项。
-> ⚠️ **仍需注意的可比性**：第 4 轮词表**内容**（奶油/胳膊/海滨…）与前三轮中文词表不同，且即时回忆做了 **3 次学习试次**（2011/2015 只有 1 次），官方提示第 4/5 波延迟回忆偏高、建议纵向记忆分先做等百分位等分（Gross 2012）；故记忆轨迹只作描述，主结局为"定向 5 项 + 连续减 7"。
-### 2.5 2020（`wave5_2020/Health_Status_and_Functioning.dta`）✓ 已完成
+> 🔧 **2026-09-13 correction**: this section previously treated `dc013_w4_1` / `dc015_w4` mistaken for 2018 of"word recall", therefore concluded"2018 only 3 words, no figure copying item"conclusion.checked questionnaire PROCEDURE then changed to primary definition 10 word list + `dc024_w4` figure copying item.
+> ⚠️ **remaining comparability considerations**: number 4 round word list**content**(butter/arm/shore…)differs from first three Chinese word lists, and immediate recall used **3 learning trials**(2011/2015 only 1 times), official note: number 4/5 wave delayed recall elevated, equipercentile equating recommended before longitudinal memory analysis(Gross 2012); therefore memory trajectories descriptive only, primary outcome is"orientation 5 items + serial subtraction of 7".
+### 2.5 2020(`wave5_2020/Health_Status_and_Functioning.dta`)✓ completed
 
-见 `code/variable_map_2020.md` 与 `output/01_2020单期基线/analysis_2020.rds`：定向 `dc001`–`dc005`、连续减 7 `dc007_1`–`dc007_5`（答案在 `_1_`）、画图 `dc009`、即时回忆 `dc012_s1`–`s10`（试次 1）、延迟回忆 `dc028_s1`–`s10`、CES-D `dc016`–`dc025`。
+see `code/variable_map_2020.md` and `output/01_2020_single_wave_baseline/analysis_2020.rds`: orientation `dc001`–`dc005`, serial subtraction of 7 `dc007_1`–`dc007_5`(answers in `_1_`), figure copying `dc009`, immediate recall `dc012_s1`–`s10`(trial 1), delayed recall `dc028_s1`–`s10`, CES-D `dc016`–`dc025`.
 
-## 三、其他变量（跨波）
+## three, other variables(across waves)
 
-| 变量 | 2011 | 2013 | 2015 | 2018 | 2020 |
+| variables | 2011 | 2013 | 2015 | 2018 | 2020 |
 |---|---|---|---|---|---|
-| 个体 ID | 11 位（补 1 位 = 12 位） | 12 位 | 12 位 | 12 位 | 12 位 |
-| 权重 | `weight.dta` 的 `ind_weight` | `INDV_weight` | `INDV_weight` | `INDV_weight` | `INDV_weight` |
-| 社区标识 | `communityID` | `communityID` | `communityID` | `communityID` | `communityID` |
-| 人口学 | `demographic_background.dta` | `Demographic_Background.dta` | 同左 | 同左 | 同左 |
-| ADL/IADL | 原始 `db*` 变量 | 同 | 同 | 同 | `db001`–`db022` |
-| 慢病 | `da002_*` / `da003_*` | 同 | 同 | 同 | 同 |
-| 疼痛 | `da027` | 待核对 | 待核对 | 待核对 | `da027` |
-| 睡眠时长 | `da030` | 待核对 | 待核对 | 待核对 | `da030` |
-| 体力活动 | `da032_*` | 待核对 | 待核对 | 待核对 | `da032_1_`–`3_` |
+| individual ID | 11 positions(supplement 1 positions = 12 positions) | 12 positions | 12 positions | 12 positions | 12 positions |
+| weights | `weight.dta` of `ind_weight` | `INDV_weight` | `INDV_weight` | `INDV_weight` | `INDV_weight` |
+| community identifier | `communityID` | `communityID` | `communityID` | `communityID` | `communityID` |
+| demographics | `demographic_background.dta` | `Demographic_Background.dta` | same as left | same as left | same as left |
+| ADL/IADL | original `db*` variables | same | same | same | `db001`–`db022` |
+| chronic conditions | `da002_*` / `da003_*` | same | same | same | same |
+| pain | `da027` | to verify | to verify | to verify | `da027` |
+| sleep duration | `da030` | to verify | to verify | to verify | `da030` |
+| physical activity | `da032_*` | to verify | to verify | to verify | `da032_1_`–`3_` |
 
-> "待核对"项的做法与认知相同：读各波模块的变量标签逐项比对（`code/_checks/map_cognition_vars.R` 的模式可复用）。
+> "to verify"items handled like cognition: compare raw variable labels item by item across waves(`code/_checks/map_cognition_vars.R` pattern can be reused).
 
-## 四、跨波可比性：三个必须定口径的问题
+## four, cross wave comparability: three definition issues requiring decisions
 
-## 四之二、分波表（2026-09-13 生成，脚本 `code/03_waves_build.R`）
+## part two of four, wave specific tables(2026-09-13 generate, scripts `code/03_waves_build.R`)
 
-输出：`output/02_五波数据与质控/waves_cognition_table_2026-09-13.csv`（下表）、`output/02_五波数据与质控/waves_cognition_2026-09-13.rds`（个体级纵向数据）
+output: `output/02_five_wave_data_and_quality_control/waves_cognition_table_2026-09-13.csv`(table below), `output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds`(individual longitudinal data)
 
-| 年份 | 可用样本 | 认知完整 | 平均年龄 | 女性 | 记忆分(原始) | 记忆分(比例) | 精神状态 | 总体认知 | 患病率B | 患病率A | 患病率C | ADL受限 | IADL受限 | 抑郁 | 高血压 | 糖尿病 | 睡眠(h) | 疼痛 | 体力活动 | 有画图项 |
+| year | available sample | complete cognition | mean age | female | memory score (original) | memory score (proportion) | mental status | global cognition | prevalence B | prevalence A | prevalence C | ADL limited | IADL limited | depression | hypertension | diabetes | sleep (h) | pain | physical activity | figure copying present |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 2011 | 16,831 | 12,288 | 59.1 | 51.1% | 7.42 | 0.371 | 8.28 | 15.69 | 15.9% | 15.3% | 25.8% | 14.7% | — | 34.2% | 26.3% | 6.5% | 6.40 | 31.6% | 90.2% | 有 |
-| 2013 | 17,835 | 13,687 | 59.9 | 51.4% | 7.54 | 0.377 | 8.22 | 15.76 | 14.2% | 15.9% | 25.3% | 15.6% | 14.4% | 30.2% | 27.9% | 7.8% | 6.21 | 34.5% | 91.0% | 有 |
-| 2015 | 19,606 | 15,859 | 60.2 | 51.3% | 7.07 | 0.353 | 8.29 | 15.36 | 17.0% | 18.0% | 27.3% | 18.0% | 14.4% | 31.2% | 33.0% | 10.1% | 6.39 | 28.4% | 90.8% | 有 |
-| 2018 | 19,384 | 11,653 | 61.7 | 52.3% | 8.77 | 0.439 | 8.32 | 17.10 | 14.8% | 15.4% | 28.8% | 13.9% | 10.5% | 33.2% | 36.6% | 13.0% | 6.25 | 58.8% | 93.7% | 有 |
-| 2020 | 17,730 | 14,655 | 61.5 | 53.0% | 8.81 | 0.441 | 7.42 | 16.24 | **15.6%** | **16.4%** | **28.2%** | 19.5% | 19.8% | 36.0% | 38.7% | 14.8% | 6.09 | 58.2% | 91.7% | 有 |
+| 2011 | 16,831 | 12,288 | 59.1 | 51.1% | 7.42 | 0.371 | 8.28 | 15.69 | 15.9% | 15.3% | 25.8% | 14.7% | — | 34.2% | 26.3% | 6.5% | 6.40 | 31.6% | 90.2% | present |
+| 2013 | 17,835 | 13,687 | 59.9 | 51.4% | 7.54 | 0.377 | 8.22 | 15.76 | 14.2% | 15.9% | 25.3% | 15.6% | 14.4% | 30.2% | 27.9% | 7.8% | 6.21 | 34.5% | 91.0% | present |
+| 2015 | 19,606 | 15,859 | 60.2 | 51.3% | 7.07 | 0.353 | 8.29 | 15.36 | 17.0% | 18.0% | 27.3% | 18.0% | 14.4% | 31.2% | 33.0% | 10.1% | 6.39 | 28.4% | 90.8% | present |
+| 2018 | 19,384 | 11,653 | 61.7 | 52.3% | 8.77 | 0.439 | 8.32 | 17.10 | 14.8% | 15.4% | 28.8% | 13.9% | 10.5% | 33.2% | 36.6% | 13.0% | 6.25 | 58.8% | 93.7% | present |
+| 2020 | 17,730 | 14,655 | 61.5 | 53.0% | 8.81 | 0.441 | 7.42 | 16.24 | **15.6%** | **16.4%** | **28.2%** | 19.5% | 19.8% | 36.0% | 38.7% | 14.8% | 6.09 | 58.2% | 91.7% | present |
 
-### 4.0 2018 年的正确口径（2026-09-13 修正）
+### 4.0 2018 correct year definition(2026-09-13 correction)
 
-2018 期 `Cognition.dta`（19,744 人、219 个变量）里同时装了两套认知题，按第 4 轮问卷 PROCEDURE 区分：
+2018 wave `Cognition.dta`(19,744 participants, 219 variables)contains two cognitive item sets, according to round 4 round questionnaire PROCEDURE distinguish: 
 
-| 题目组 | 变量 | 施测对象 | 非缺失 |
+| item group | variables | target respondents | nonmissing |
 |---|---|---|---|
-| 定向 5 项 | `dc001_w4`、`dc002_w4`、`dc003_w4`、`dc005_w4`、`dc006_w4` | 45 岁以上全样本 | 18,158 |
-| 连续减 7 | `dc014_w4_1_1` … `dc014_w4_5_1` | 全样本 | 13,614 → 10,648 |
-| 画图（重叠五边形） | `dc024_w4` | 全样本 | 18,155 |
-| **10 词表即时回忆（试次 1）** | `dc028_w4_s1`–`s10`（试次 2/3 = `dc029_w4_s*` / `dc030_w4_s*`） | 全样本 | 16,343 |
-| **10 词表延迟回忆** | `dc047_w4_s1`–`s10` | 全样本 | 15,688 |
-| 地点定向、3 词表、操作指令题、词语再认等 | `dc007`–`dc012_w4`、`dc013_w4_1`、`dc015_w4`、`dc016`–`dc027_w4`、`dc048`–`dc067_w4` | **仅 60 岁以上**（MMSE / HCAP 子集） | 9,989 / 7,801 |
+| orientation 5 items | `dc001_w4`, `dc002_w4`, `dc003_w4`, `dc005_w4`, `dc006_w4` | 45 full sample above age | 18,158 |
+| serial subtraction of 7 | `dc014_w4_1_1` … `dc014_w4_5_1` | full sample | 13,614 → 10,648 |
+| figure copying(overlapping pentagons) | `dc024_w4` | full sample | 18,155 |
+| **10 word list immediate recall(trial 1)** | `dc028_w4_s1`–`s10`(trial 2/3 = `dc029_w4_s*` / `dc030_w4_s*`) | full sample | 16,343 |
+| **10 word list delayed recall** | `dc047_w4_s1`–`s10` | full sample | 15,688 |
+| place orientation, 3 word list, instruction following items, word recognition and related items | `dc007`–`dc012_w4`, `dc013_w4_1`, `dc015_w4`, `dc016`–`dc027_w4`, `dc048`–`dc067_w4` | **only 60 years and older**(MMSE / HCAP subset) | 9,989 / 7,801 |
 
-证据：`data/docs/04_2018/CHARLS_2018_Household_Questionnaire.pdf` 第 106 页；核对脚本 `code/_checks/verify_2018_cognition_variables.R`。
+evidence: `data/docs/04_2018/CHARLS_2018_Household_Questionnaire.pdf` number 106 page; verification script `code/_checks/verify_2018_cognition_variables.R`.
 
-**修正后的固定队列规模**（`code/_checks/cohort_sizes_after_fix.R`）
+**corrected fixed cohort size**(`code/_checks/cohort_sizes_after_fix.R`)
 
-| 结局指标 | 五波均有数据的固定队列 |
+| outcome measure | fixed cohort with data at all five waves |
 |---|---|
-| 记忆分（10 词即时试次 1 + 延迟，0–20） | **6,338 人** |
-| "定向 + 连续减 7"（ms10，0–10） | **5,672 人**（2011≥45岁且纵向主结局可计分） |
-| "定向 + 连续减 7 + 画图"（0–11） | 5,553 人（画图缺失略多，仍不作主结局） |
-| 仅定向（5 项） | 9,954 人 |
+| memory score(10 word immediate trial 1 + delayed, 0–20) | **6,338 participants** |
+| "orientation + serial subtraction of 7"(ms10, 0–10) | **5,672 participants**(2011≥45 age eligible with scorable primary longitudinal outcome) |
+| "orientation + serial subtraction of 7 + figure copying"(0–11) | 5,553 participants(slightly more missing figure copying, still not primary outcome) |
+| orientation only(5 items) | 9,954 participants |
 
-### 4.1 记忆分的跨波可比性：词表内容与学习试次数不同
+### 4.1 cross wave memory comparability: different word lists and learning trial counts
 
-- 2011 / 2013 / 2015 用中文 10 词表（`dc006_wordlist_*` 有 4 个版本；2013 做 3 次学习试次，2011/2015 只做 1 次）；
-- 2018 用另一套词表（Butter / Arm / Shore / …），2020 亦为 10 词；两波都是 3 次学习试次；
-- CHARLS 官方说明（`data/docs/general/CHARLS-HCAP-User-Guidance-cn.pdf`、`data/docs/04_2018/w2018-data-alert-cn.pdf`）：第 4 轮词表内容与管理方式都与前三轮不同，延迟回忆因此偏高，建议纵向记忆分先做**等百分位等分**（Gross AL, et al. 2012）。
+- 2011 / 2013 / 2015 uses Chinese 10 word list(`dc006_wordlist_*` present 4 versions; 2013 perform 3 learning trials, 2011/2015 only perform 1 times); 
+- 2018 uses another word list(Butter / Arm / Shore / …), 2020 also is 10 words; both waves are 3 learning trials; 
+- CHARLS official documentation(`data/docs/general/CHARLS-HCAP-User-Guidance-cn.pdf`, `data/docs/04_2018/w2018-data-alert-cn.pdf`): number 4 round word list and administration differ from first three rounds, thus elevated delayed recall, longitudinal memory should first undergo**equipercentile equating**(Gross AL, et al. 2012).
 
-三种处理方式（结果见 `code/08_measurement_equivalence.R` 与 `output/05_测量等价比/measurement_equivalence_note_2026-09-13.md`）：
+three handling methods(results in `code/08_measurement_equivalence.R` and `output/05_measurement_equivalence_ratio/measurement_equivalence_note_2026-09-13.md`): 
 
-| 方案 | 做法 | 每十年斜率 |
+| scheme | approach | slope per decade |
 |---|---|---|
-| A. 比例化（含 2018） | 回忆词数 ÷ 词表长度（0–1） | +0.038（0.033–0.042） |
-| B. 波内 z | 每波转 z 分 | −0.173（−0.199–−0.147） |
-| C. 比例化（排除 2018） | 2018 不参与记忆分析 | +0.054（0.049–0.059） |
+| A. prorated(including 2018) | number of recalled words ÷ word list length(0–1) | +0.038(0.033–0.042) |
+| B. within wave z | transform each wave into z points | −0.173(−0.199–−0.147) |
+| C. prorated(exclude 2018) | 2018 excluded from memory analysis | +0.054(0.049–0.059) |
 
-> A/C 均为"小幅上升"，与官方提示的"第 4/5 波偏高"一致，**不能当作记忆改善**；故记忆轨迹只作描述与附录。
+> A/C all are"small increase", and official note of"number 4/5 wave elevation"consistent, **cannot interpret as memory improvement**; memory trajectories descriptive and supplementary only.
 
-### 4.2 定向题的构成与顺序不同
+### 4.2 orientation item content and order differ
 
-五波都是 5 项（年/月/日/星期/季），但 2018 的变量编号顺序与 2020 完全不同（见 2.4），必须**逐项按标签对齐**，不能按编号套用。
+all five waves use 5 items(year/month/day/day of week/season), but 2018 variable numbering order and 2020 completely different(see 2.4), must**align by item labels**, do not map by numeric codes.
 
-### 4.3 2011 期 IADL 有原始条目、但没有 Harmonized 汇总变量（2026-09-19 更正）
+### 4.3 2011 wave IADL raw items available, but no Harmonized summary variable(2026-09-19 correction)
 
-- **2011 期确实问了 IADL**：原始模块 `db016`–`db020` = 做家务 / 做饭 / 购物 / 理财 / 服药，编码 1–4（1 无困难、2 有困难但能做、3 有困难需帮助、4 做不了），约 17,548 人作答；Harmonized D 里也有对应单条目 `r1housewka`、`r1mealsa`、`r1shopa`、`r1moneya`、`r1medsa`。
-- 但 **Harmonized D 没给 2011 期的汇总变量 `r1iadla`**：官方口径 `RwIADLA = 打电话(PHONEA) + 理财(MONEYA) + 服药(MEDSA)`，而"打电话"从第 2 波才问（codebook：*RwIADLA and RwIADLZA are only available starting at Wave 2. At Wave 1, there is no question regarding using the phone.*）。
-- 因此本管线的 2011 期 `iadl` 记缺失，表中标注"2011 期未纳入"，**不是"未施测"**。
-- 若确需 2011 期 IADL：可用 `db019`（理财）+ `db020`（服药）做**两条目部分口径**（与 2013+ 的三条目汇总不完全可比），或改用原始五条目自建（同样与官方汇总不可比），两种做法都必须写明口径差异。
+- **2011 question was asked at this wave IADL**: raw module `db016`–`db020` = housework / preparing meals / shopping / managing finances / taking medication, coding 1–4(1 no difficulty, 2 difficulty but able, 3 difficulty requiring help, 4 unable), approximately 17,548 respondents; Harmonized D corresponding individual items also present `r1housewka`, `r1mealsa`, `r1shopa`, `r1moneya`, `r1medsa`.
+- but **Harmonized D not provided 2011 wave summary variable `r1iadla`**: official definition `RwIADLA = making telephone calls (PHONEA) + managing finances (MONEYA) + taking medication (MEDSA)`, whereas"making telephone calls"starting at 2 wave first asked(codebook: *RwIADLA and RwIADLZA are only available starting at Wave 2. At Wave 1, there is no question regarding using the phone.*).
+- therefore this pipeline 2011 wave `iadl` code as missing, annotated in table"2011 wave excluded", **is not"not administered"**.
+- if required 2011 wave IADL: available `db019`(managing finances)+ `db020`(taking medication)perform**partial two item definition**(and 2013+ three item summary not fully comparable), or construct original five item version(also not comparable with official summary), both approaches must disclose definition differences.
 
-> 这几条建议在下周与导师讨论时**主动提出**：说明你已发现跨波口径差异并给出处理方案，比被审稿人问到要好得多。
+> raise these points at next supervisor meeting**proactively discuss**: explain identified wave differences and proposed handling, preferable to discovering them during review.
 
-1. 完成 2018 认知变量映射（含疼痛/睡眠/体力活动）；
-2. 写 `code/03_waves_build.R`：五波各建一份"同一口径"的分析数据集（9 分项 + 同一套协变量 + 各波自己的教育分层切点）；
-3. 出分波表（每波一张 Table 1 式表 + 患病率），并统计"五波认知均可计分"的固定队列人数；
-4. 交导师前，把口径差异（尤其 9 分项在 2011 与 2013+ 的题量差异）写成一段说明。
+1. complete 2018 cognitive variable mapping(including pain/sleep/physical activity); 
+2. write `code/03_waves_build.R`: construct one dataset per wave"same definition"analysis dataset(9 components + same covariate set + wave specific education cutoffs); 
+3. produce wave specific tables(one per wave Table 1 style table + prevalence), also count"scorable cognition at all five waves"fixed cohort participant count; 
+4. before supervisor delivery, definition differences(especially 9 components in 2011 and 2013+ differences in item counts)write an explanatory paragraph.

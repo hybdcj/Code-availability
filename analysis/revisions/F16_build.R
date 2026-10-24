@@ -1,9 +1,9 @@
 # ============================================================================
-# F16 build：外部队列重建，**不设基线记忆限制**
-# 用法：Rscript F16_build.R {HRS|ELSA|SHARE}
-# 变量映射与缺失码处理完全照抄 code/23_external_cohort_harmonize_v2.R（A11 v2）
-# 唯一改动：不再 filter(!is.na(mem_base))；不再要求 mem_base > cut
-# 输出：C:/y03tmp/tmp/F16_base_<队列>.rds
+# F16 build: reconstruct external cohorts, **no baseline memory restriction**
+# usage: Rscript F16_build.R {HRS|ELSA|SHARE}
+# variable mapping and missing codes copied exactly code/23_external_cohort_harmonize_v2.R(A11 v2)
+# only change: no longer filter(!is.na(mem_base)); no longer requires mem_base > cut
+# output: C:/y03tmp/tmp/F16_base_<cohort>.rds
 # ============================================================================
 args <- commandArgs(trailingOnly = TRUE)
 co <- args[1]
@@ -18,7 +18,7 @@ if (co == "HRS") {
          "r10imrc","r10dlrc","r12imrc","r12dlrc")
   rd <- as.data.frame(read_dta("D:/codex_tmp/hrs/randhrs1992_2022v1.dta", col_select = any_of(v)))
   raw_n <- nrow(rd)
-  say("HRS 原始行数：", raw_n, "｜读到列：", paste(names(rd), collapse = ", "))
+  say("HRS original row count: ", raw_n, "｜column read: ", paste(names(rd), collapse = ", "))
   rd <- as.data.frame(lapply(rd, neg2na))
   sx <- if ("ragender" %in% names(rd)) rd$ragender else rep(NA_real_, nrow(rd))
   d <- data.frame(
@@ -38,7 +38,7 @@ if (co == "ELSA") {
          "r4imrc","r4dlrc","r6imrc","r6dlrc")
   rd <- as.data.frame(read_dta("D:/codex_tmp/elsa/gh_elsa_h.dta", col_select = any_of(v)))
   raw_n <- nrow(rd)
-  say("ELSA 原始行数：", raw_n, "｜读到列：", paste(names(rd), collapse = ", "))
+  say("ELSA original row count: ", raw_n, "｜column read: ", paste(names(rd), collapse = ", "))
   rd <- as.data.frame(lapply(rd, neg2na))
   sx <- if ("ragender" %in% names(rd)) rd$ragender else
         if ("r4sex" %in% names(rd)) rd$r4sex else rep(NA_real_, nrow(rd))
@@ -58,7 +58,7 @@ if (co == "SHARE") {
          "gender","female","recall_1","recall_2")
   sh <- as.data.frame(read_dta("D:/codex_tmp/share/easySHARE_rel9-0-0.dta", col_select = any_of(v)))
   raw_n <- nrow(sh)
-  say("SHARE 原始行数：", raw_n, "｜读到列：", paste(names(sh), collapse = ", "))
+  say("SHARE original row count: ", raw_n, "｜column read: ", paste(names(sh), collapse = ", "))
   lab <- attr(sh$country_mod, "labels")
   lab_map <- setNames(sub("^[0-9]+\\.\\s*", "", names(lab)), as.integer(lab))
   sh$mergeid <- as.character(sh$mergeid)
@@ -73,7 +73,7 @@ if (co == "SHARE") {
                   isced = w4$isced1997_r, eurod = w4$eurod, adla = w4$adla,
                   rec1 = w4$recall_1, rec2 = w4$recall_2, sex = sx,
                   country_label = unname(lab_map[as.character(w4$country_mod)]))
-  # 与仓库版 code/23_external_cohort_harmonize.R 一致：left join，保留全部 wave 4 受访者
+  # and repository version code/23_external_cohort_harmonize.R consistent: left join, retain all wave 4 respondents
   m <- merge(a, w6, by = "ID", all.x = TRUE)
   d <- data.frame(
     ID = m$ID, age = m$age, sex = m$sex, country_mod = m$country_mod,
@@ -86,9 +86,9 @@ if (co == "SHARE") {
     cohort = "SHARE")
 }
 
-# 统一：只做年龄与评分三项的必备过滤，**不碰 mem_base 与 mem_fu**
+# harmonization: apply only necessary age and three score item filters, **do not change mem_base and mem_fu**
 d <- d[!is.na(d$age) & !is.na(d$edu_pts) & !is.na(d$dep), ]
-say("年龄/教育/抑郁齐全：", nrow(d), "｜其中 mem_base 可得 ", sum(!is.na(d$mem_base)),
-    "｜mem_fu 可得 ", sum(!is.na(d$mem_fu)))
+say("age/education/complete depression: ", nrow(d), "｜of which mem_base available ", sum(!is.na(d$mem_base)),
+    "｜mem_fu available ", sum(!is.na(d$mem_fu)))
 saveRDS(d, file.path(TMP, paste0("F16_base_", co, ".rds")))
-say("已写出 F16_base_", co, ".rds；raw_n = ", raw_n)
+say("written F16_base_", co, ".rds; raw_n = ", raw_n)

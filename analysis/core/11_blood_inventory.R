@@ -1,15 +1,15 @@
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 # ============================================================
-# 血液统计第一步：2011 血样变量清查与固定队列对接
-# 目标：
-#   1) 核对 2011 血液数据是否含 PLT/WBC/CRP 等指标
-#   2) 与2011年≥45岁、五波ms10可计分固定队列 对接
-#   3) 统计缺失、分布范围和可分析样本量
-#   4) 输出可供后续回归使用的 2011 血液子集
-# 说明：
-#   - 原始数据只读，不修改；
-#   - CHARLS 已释放血液数据不含中性粒细胞/淋巴细胞分类，故不能计算 Neu/NLR/PLR；
-#   - 2015 血液数据尚未下载，待取得后再扩展第二时点。
+# blood analysis step one: 2011 blood variable inventory and fixed cohort linkage
+# target: 
+#   1) verify 2011 whether blood data contain PLT/WBC/CRP and related biomarkers
+#   2) and 2011 year≥45 years old, five waves ms10 scorable fixed cohort linkage
+#   3) missingness counts, distribution ranges and analyzable sample sizes
+#   4) output for later regression 2011 blood subset
+# notes: 
+#   - raw data read only, do not modify; 
+#   - CHARLS released blood data contain no neutrophils/lymphocyte differential, therefore cannot calculate Neu/NLR/PLR; 
+#   - 2015 blood data not yet downloaded, extend to second time point after acquisition.
 # ============================================================
 
 .libPaths(c("D:/R/library", .libPaths()))
@@ -20,12 +20,12 @@ suppressPackageStartupMessages({
 })
 
 in_blood_zip <- "data/raw/wave1_2011/blood/Blood_20140429.zip"
-in_cohort    <- "output/04_纵向队列/cohort_change_2026-09-13.rds"
-out_dir      <- "output/07_血液指标"
+in_cohort    <- "output/04_longitudinal_cohort/cohort_change_2026-09-13.rds"
+out_dir      <- "output/07_blood_biomarkers"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-# 统一 CHARLS 个体 ID：
-# 2011 为 11 位（户号9位 + 个人序号2位），其余为 12 位。
+# harmonization CHARLS individual ID: 
+# 2011 is 11 positions(household number 9 positions + individual sequence number 2 positions), remaining values are 12 positions.
 normalize_id <- function(x) {
   x <- as.character(x)
   ifelse(
@@ -35,7 +35,7 @@ normalize_id <- function(x) {
   )
 }
 
-# 1. 读取 2011 血液数据
+# 1. read 2011 blood data
 tmp <- tempfile()
 dir.create(tmp)
 unzip(in_blood_zip, exdir = tmp)
@@ -54,7 +54,7 @@ blood <- blood %>%
     MCV = as.numeric(qc1_vb006)        # Mean corpuscular volume, fL
   )
 
-# 2. 读取五波固定队列
+# 2. read five wave fixed cohort
 cohort_obj <- readRDS(in_cohort)
 cohort_long <- cohort_obj$cohort %>%
   mutate(KEY = normalize_id(ifelse(!is.na(IDn), IDn, ID)))
@@ -77,13 +77,13 @@ key_year <- cohort_long %>%
     decline_2plus = fixed_cohort & (y2020 - y2011) <= -2
   )
 
-# 3. 血液与固定队列对接
+# 3. link blood data to fixed cohort
 dat <- key_year %>%
   left_join(blood %>% select(KEY, PLT, WBC, CRP, HGB, HCT, MCV, bloodweight = bloodweight),
             by = "KEY") %>%
   left_join(cohort_obj$wide %>% select(KEY, age2011), by = "KEY")
 
-# 4. 变量清单
+# 4. variable inventory
 var_inventory <- tibble(
   variable = c("PLT", "WBC", "CRP", "HGB", "HCT", "MCV"),
   raw_variable = c("qc1_vb009", "qc1_vb002", "newcrp", "qc1_vb004", "qc1_vb005", "qc1_vb006"),
@@ -97,7 +97,7 @@ var_inventory <- tibble(
 write.csv(var_inventory, file.path(out_dir, "blood_variable_inventory_2026-09-19.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
-# 5. 对接与缺失统计
+# 5. linkage and missingness counts
 blood_flags <- dat %>%
   summarise(
     fixed_cohort = sum(fixed_cohort, na.rm = TRUE),
@@ -113,7 +113,7 @@ blood_flags <- dat %>%
 write.csv(blood_flags, file.path(out_dir, "blood_overlap_2026-09-19.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
-# 6. 分布摘要（固定队列中血液非缺失者）
+# 6. distribution summary(fixed cohort participants with nonmissing blood measurements)
 summary_rows <- lapply(c("PLT", "WBC", "CRP", "HGB", "HCT", "MCV"), function(v) {
   x <- dat[[v]][dat$fixed_cohort]
   tibble(
@@ -134,31 +134,31 @@ summary_rows <- lapply(c("PLT", "WBC", "CRP", "HGB", "HCT", "MCV"), function(v) 
 write.csv(summary_rows, file.path(out_dir, "blood_summary_fixedcohort_2026-09-19.csv"),
           row.names = FALSE, fileEncoding = "UTF-8")
 
-# 7. 仅保留固定队列，供后续回归直接使用
+# 7. retain fixed cohort only, for direct use in subsequent regression
 analysis <- dat %>% filter(fixed_cohort)
 saveRDS(analysis, file.path(out_dir, "analysis_blood_2011_fixedcohort_2026-09-19.rds"))
 
-# 8. 生成 Markdown 清查报告
+# 8. generate Markdown inventory report
 fmt <- function(x, digits = 3) formatC(x, format = "f", digits = digits)
 lines <- c(
-  "# 血液统计第一步 · 数据可用性与变量清查",
+  "# blood analysis step one · data availability and variable inventory",
   "",
-  "> 生成日期：2026-09-20（年龄口径修正后重算）",
+  "> generation date: 2026-09-20(recompute after correcting age eligibility)",
   "",
-  "## 一、结论",
+  "## one, conclusion",
   "",
-  paste0("- 2011 年血样数据：**已下载并成功读取**，n=", nrow(blood), "。"),
-  paste0("- 与五波固定队列可对接：**", blood_flags$fixed_cohort, " 人**。"),
-  paste0("- 三项核心指标均非缺失：PLT=", blood_flags$PLT_nonmissing,
-         "；WBC=", blood_flags$WBC_nonmissing,
-         "；CRP=", blood_flags$CRP_nonmissing, "。"),
-  paste0("- PLT、WBC、CRP 三项同时非缺失：**", blood_flags$all3_nonmissing, " 人**。"),
-  "- CHARLS 已释放血液数据中没有中性粒细胞或淋巴细胞分类，**Neu、NLR、PLR 无法计算**。",
-  "- 2015 年血液数据已于 2026-09-19 下载（Blood.zip），并已在第二步完成两波对接。",
+  paste0("- 2011 year blood sample data: **downloaded and successfully read**, n=", nrow(blood), "."),
+  paste0("- linkable to five wave fixed cohort: **", blood_flags$fixed_cohort, " participants**."),
+  paste0("- all three core biomarkers nonmissing: PLT=", blood_flags$PLT_nonmissing,
+         "; WBC=", blood_flags$WBC_nonmissing,
+         "; CRP=", blood_flags$CRP_nonmissing, "."),
+  paste0("- PLT, WBC, CRP all three simultaneously nonmissing: **", blood_flags$all3_nonmissing, " participants**."),
+  "- CHARLS released blood data contain no neutrophil or lymphocyte differentials, **Neu, NLR, PLR cannot calculate**.",
+  "- 2015 year blood data acquired on 2026-09-19 download(Blood.zip), two wave linkage completed in step two.",
   "",
-  "## 二、2011 年可用变量",
+  "## two, 2011 available variables by year",
   "",
-  "| 指标 | 原始变量 | 单位 |",
+  "| metrics | raw variable | unit |",
   "|---|---|---|",
   "| PLT | qc1_vb009 | 10^9/L |",
   "| WBC | qc1_vb002 | 10^3/uL |",
@@ -167,9 +167,9 @@ lines <- c(
   "| HCT | qc1_vb005 | % |",
   "| MCV | qc1_vb006 | fL |",
   "",
-  "## 三、固定队列分布摘要",
+  "## three, fixed cohort distribution summary",
   "",
-  "| 指标 | n | 缺失 | 均值 | SD | 中位数 | P1 | P99 |",
+  "| metrics | n | missing | mean | SD | median | P1 | P99 |",
   "|---|---:|---:|---:|---:|---:|---:|---:|"
 )
 for (i in seq_len(nrow(summary_rows))) {
@@ -180,25 +180,25 @@ for (i in seq_len(nrow(summary_rows))) {
 }
 lines <- c(lines,
   "",
-  "## 四、后续分析入口",
+  "## four, entry point for subsequent analysis",
   "",
-  paste0("可直接读取：`", file.path(out_dir, "analysis_blood_2011_fixedcohort_2026-09-19.rds"), "`"),
+  paste0("directly readable: `", file.path(out_dir, "analysis_blood_2011_fixedcohort_2026-09-19.rds"), "`"),
   "",
-  "建议模型顺序：",
-  "1. PLT、WBC、CRP 分别按连续值和三分位/四分位建模；",
-  "2. 结局先做十年新发受损 Logistic，再做认知变化量线性回归；",
-  "3. 校正年龄、性别、教育、城乡及基线认知；",
-  "4. 对极端值做截尾或排除敏感性分析；",
-  "5. 2015 血样下载后再做第二时点及重复测量分析。",
+  "suggested model sequence: ",
+  "1. PLT, WBC, CRP model as continuous values and tertiles respectively/quartile models; ",
+  "2. first analyze ten year incident impairment Logistic, then linear regression of cognitive change; ",
+  "3. adjust for age, sex, education, urban rural residence and baseline cognition; ",
+  "4. winsorize or exclude extremes in sensitivity analyses; ",
+  "5. 2015 analyze second time point and repeated measures after blood data acquisition.",
   "",
-  "## 五、当前数据状态",
+  "## five, current data status",
   "",
-  "- 2011 与 2015 血液数据均已完成变量清查；",
-  "- 两波对接及后续模型见 `output/07_血液指标/blood_two_wave_report_2026-09-19.md`；",
-  "- Neu/NLR/PLR 不可计算，后续以 PLT、WBC、CRP 作为血液炎症相关指标。"
+  "- 2011 and 2015 blood variable inventories completed; ",
+  "- two wave linkage and subsequent models in `output/07_blood_biomarkers/blood_two_wave_report_2026-09-19.md`; ",
+  "- Neu/NLR/PLR not calculable, subsequently use PLT, WBC, CRP as blood inflammation related biomarkers."
 )
 writeLines(lines, file.path(out_dir, "blood_inventory_report_2026-09-19.md"), useBytes = TRUE)
 
-cat("完成：", file.path(out_dir, "blood_inventory_report_2026-09-19.md"), "\n")
+cat("complete: ", file.path(out_dir, "blood_inventory_report_2026-09-19.md"), "\n")
 print(blood_flags)
 print(summary_rows)

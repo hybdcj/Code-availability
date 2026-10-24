@@ -1,24 +1,24 @@
 # ============================================================================
-# 23_external_cohort_harmonize.R —— A11 v2（第三轮复核修正版）
-# 外部队列 harmonization 与固定评分映射
-# 修正要点（2026-09-26 第三轮复核）：
-#   1) 切点与 CHARLS 开发口径一致：按“全部符合基线条件者”计算 mean−1SD，
-#      不要求随访记忆分可用；整数阈值 = floor(mean−1SD)。
-#   2) SHARE ISCED-97 的 95（仍在学）/97（其他）按缺失处理，不再误归高中以上。
-#   3) SHARE 保留 country_mod（14 国）与 country_label，供 A12 国家聚类/分层。
-#   4) 同时输出切点定义敏感性：baseline_all、complete_fu、fixed CHARLS ≤4。
-# 依赖：D:/codex_tmp/{hrs,elsa,share} 下已解压的 DTA（原始压缩包见 external_data/<队列>/raw|harmonized/）
-# 输出：external_data/<队列>/analysis/<队列>_analysis_2026-09-26.rds（主分析）
-#       external_data/mapping/A11_三队列评分摘要_2026-09-26.csv
-#       external_data/mapping/A11_切点敏感性_2026-09-26.csv
-#       external_data/mapping/A11_切点敏感性_分层_2026-09-26.csv
-#       external_data/mapping/A11_队列流程图_2026-09-26.csv
+# 23_external_cohort_harmonize.R —— A11 v2(third round audited correction)
+# external cohort harmonization and fixed score mapping
+# key corrections(2026-09-26 third round audit): 
+#   1) cutoff and CHARLS consistent with development definition: by“all baseline eligible participants”calculate mean−1SD, 
+#      follow up memory availability not required; integer threshold = floor(mean−1SD).
+#   2) SHARE ISCED-97 of 95(still in education)/97(other)treat as missing, no longer misclassified as high school or above.
+#   3) SHARE retain country_mod(14 countries)and country_label, for A12 country clustering/stratification.
+#   4) also output cutoff definition sensitivity: baseline_all, complete_fu, fixed CHARLS ≤4.
+# dependencies: D:/codex_tmp/{hrs,elsa,share} extracted under DTA(raw archives in external_data/<cohort>/raw|harmonized/)
+# output: external_data/<cohort>/analysis/<cohort>_analysis_2026-09-26.rds(primary analysis)
+#       external_data/mapping/A11_three_cohort_score_summary_2026_09_26.csv
+#       external_data/mapping/A11_cutoff_sensitivity_2026_09_26.csv
+#       external_data/mapping/A11_cutoff_sensitivity_stratification_2026_09_26.csv
+#       external_data/mapping/A11_cohort_flowchart_2026_09_26.csv
 # ============================================================================
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
 .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages({ library(haven); library(dplyr); library(tidyr); library(pROC) })
 
-BASE <- "D:/BaiduSyncdisk/科研/徐中豪/external_data"
+BASE <- "D:/BaiduSyncdisk/research/Xu_Zhonghao/external_data"
 OUT  <- Sys.getenv("A11_OUT", unset = BASE)
 dir.create(file.path(OUT, "mapping"), showWarnings = FALSE, recursive = TRUE)
 for (co in c("HRS","ELSA","SHARE")) dir.create(file.path(OUT, co, "analysis"), showWarnings = FALSE, recursive = TRUE)
@@ -95,14 +95,14 @@ build_share <- function() {
   lab_map <- setNames(sub("^[0-9]+\\.\\s*", "", names(lab)), as.integer(lab))
   sh$mergeid <- as.character(sh$mergeid)
   for (v in setdiff(names(sh), "mergeid")) sh[[v]] <- clean_neg(sh[[v]])
-  # ISCED-97 合法取值 0–6；95=仍在学、97=其他按缺失处理
+  # ISCED-97 valid values 0–6; 95=still in education, 97=otherwise treat as missing
   sh$isced1997_r[!is.na(sh$isced1997_r) & sh$isced1997_r > 6] <- NA
 
   a <- sh[sh$wave == 4, c("mergeid","country_mod","age","isced1997_r","eurod","adla","recall_1","recall_2")]
   names(a) <- c("ID","country_mod","age","isced","eurod","adla","rec1","rec2")
   b <- sh[sh$wave == 6, c("mergeid","recall_1","recall_2")]
   names(b) <- c("ID","rec1_fu","rec2_fu")
-  d <- merge(a, b, by = "ID", all.x = TRUE)  # 保留全部 wave4 基线符合条件者；wave6 缺失者 mem_fu=NA
+  d <- merge(a, b, by = "ID", all.x = TRUE)  # retain all wave4 baseline eligible participants; wave6 participants with missing values mem_fu=NA
   d <- d %>% transmute(
     ID, country_mod = as.numeric(country_mod),
     country_label = unname(lab_map[as.character(country_mod)]),
@@ -145,7 +145,7 @@ analyse_cut <- function(cohort, d, cut_def) {
   risk <- d %>% filter(mem_base > cut_int, !is.na(mem_fu)) %>%
     mutate(event = as.integer(mem_fu <= cut_int),
            cut = cut_raw, cut_int = cut_int, cohort = cohort)
-  strata <- risk %>% mutate(stratum = cut(score, c(-Inf, -3, 4, Inf), labels = c("低","中","高"))) %>%
+  strata <- risk %>% mutate(stratum = cut(score, c(-Inf, -3, 4, Inf), labels = c("low","in","high"))) %>%
     group_by(stratum) %>% summarise(n = n(), events = sum(event), rate = mean(event), .groups = "drop") %>%
     mutate(cohort = cohort, cut_definition = cut_def) %>% relocate(cohort, cut_definition)
   r1 <- roc(risk$event, risk$score, direction = "<", quiet = TRUE)
@@ -194,10 +194,10 @@ flow <- bind_rows(
           sum(!is.na(share$d$mem_fu)), nrow(primary$SHARE)))
 )
 
-write.csv(primary_overall, file.path(OUT, "mapping/A11_三队列评分摘要_2026-09-26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(overall, file.path(OUT, "mapping/A11_切点敏感性_2026-09-26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(strata, file.path(OUT, "mapping/A11_切点敏感性_分层_2026-09-26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(flow, file.path(OUT, "mapping/A11_队列流程图_2026-09-26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(primary_overall, file.path(OUT, "mapping/A11_three_cohort_score_summary_2026_09_26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(overall, file.path(OUT, "mapping/A11_cutoff_sensitivity_2026_09_26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(strata, file.path(OUT, "mapping/A11_cutoff_sensitivity_stratification_2026_09_26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(flow, file.path(OUT, "mapping/A11_cohort_flowchart_2026_09_26.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
 saveRDS(primary$HRS,  file.path(OUT, "HRS/analysis/HRS_analysis_2026-09-26.rds"))
 saveRDS(primary$ELSA, file.path(OUT, "ELSA/analysis/ELSA_analysis_2026-09-26.rds"))
@@ -208,12 +208,12 @@ for (nm in names(cohorts)) {
   saveRDS(sens_risk[keys], file.path(OUT, nm, "analysis", paste0(nm, "_sensitivity_risk_sets_2026-09-26.rds")))
 }
 
-cat("\n================ A11 v2 主分析（baseline_all_mean_sd） ================\n")
+cat("\n================ A11 v2 primary analysis(baseline_all_mean_sd) ================\n")
 print(primary_overall %>% select(cohort, baseline_n, followup_n, cut_raw, cut_int, risk_n, events,
                                  event_rate, score_mean, score_sd, auc_score, auc_score_low, auc_score_high) %>% mutate(across(where(is.numeric), ~round(.x, 4))))
-cat("\n================ 主分析分层事件率 ================\n")
+cat("\n================ stratum specific primary analysis event rates ================\n")
 print(strata %>% filter(cut_definition == "baseline_all_mean_sd") %>% mutate(rate = round(rate,4)) %>% as.data.frame())
-cat("\n================ 切点定义敏感性 ================\n")
+cat("\n================ cutoff definition sensitivity ================\n")
 print(overall %>% select(cohort, cut_definition, cut_raw, cut_int, risk_n, events, event_rate, auc_score) %>%
       mutate(across(where(is.numeric), ~round(.x, 4))) %>% arrange(cohort, cut_definition) %>% as.data.frame())
-cat("\n已写入：", OUT, "\n")
+cat("\n written: ", OUT, "\n")

@@ -1,12 +1,22 @@
-# 整理检查记录
+# Validation Record
 
-日期：2026-10-17。
+## Original packaging checks: 2026-10-17
 
-- 68 个研究来源文件（65 个 R 脚本、1 个 Python 脚本、2 个变量映射说明）逐字节计算 SHA-256，与原项目文件一致。
-- 67 个 R 文件（含 2 个仓库工具）完成 parse 语法检查；未执行分析表达式。Windows 启动环境的默认 C.UTF-8 locale 不可用，检查工具显式设置 Chinese_China.utf8 后通过。
-- Python 源码完成 AST 语法检查；路径准备/检查工具需要 Python 3.10 或以上。
-- 路径工具在独立临时目录测试：首次准备、相同配置重复执行、拒绝覆盖已被修改的目标文件均通过；未触碰原研究文件。
-- 检查所有待提交文件均为白名单文本格式，检查常见凭据模式及仓库说明中的本地链接。CSV 仅为源清单、输入表达式索引和包版本记录。
-- R 依赖版本从本机已安装包中读取，Python openpyxl 版本从当前环境读取。未把这些快照称为历史分析锁定环境。
+- SHA-256 checks verified that 68 research source files (65 R scripts, one Python script, and two variable-mapping documents) matched the original project byte for byte at the original packaging commit.
+- All 67 R files, including two repository tools, passed parsing without executing analysis expressions. The Windows startup default C.UTF-8 locale was unavailable; the checker explicitly used Chinese_China.utf8.
+- Python sources passed AST syntax checks. Preparation and verification helpers require Python 3.10 or later.
+- Workspace preparation passed initial execution, repeated execution with identical configuration, and refusal to overwrite a modified target, in an isolated temporary directory. Original research files were not touched.
+- Submitted files were checked for allowed text formats, common credential patterns, and local documentation links. CSV files contained only source manifests, input-expression indexes, and package versions.
+- R versions came from installed local packages; the openpyxl version came from the packaging environment. These snapshots were not presented as historical lockfiles.
 
-未执行数据下载、模型重拟合、Bootstrap、插补或整套图表重绘；未宣称在全新环境中完成端到端复现。未修改论文文件，未上传参与者数据或派生模型对象。语法和文件检查不等同于对统计结果的独立重算验证。
+## English release checks: 2026-10-24
+
+- All 67 R files pass syntax parsing. Static comparison with the original commit preserves token structure, numerical constants, operators, and all 324 mapped identifiers.
+- All three Python source files pass AST parsing.
+- The manifest verifies all 68 distributed research sources after translation. The input-reference index matches the current source lines.
+- All eight renamed script paths and local Markdown links resolve. Repository filenames and text contain no remaining Chinese characters; original names in the compatibility JSON use Unicode escapes.
+- Workspace preparation creates all 68 files in the expected English directory layout. Repeated preparation is idempotent, and modified destination files are correctly rejected. Known absolute project prefixes are replaced.
+
+The English release changes source bytes, so the current manifest records the translated distribution. Original source bytes and checksums remain available in Git history. See [english-release.md](english-release.md) for historical input compatibility.
+
+No data download, model refitting, bootstrap, imputation, or complete figure regeneration was performed. No clean-environment end-to-end reproduction is claimed. Manuscript files were not modified, and participant data and derived model objects were not uploaded. Syntax and integrity checks do not independently validate the statistical results.

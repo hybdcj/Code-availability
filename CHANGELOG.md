@@ -1,14 +1,20 @@
-# 变更记录
+# Changelog
 
-## 2026-10-17 — 投稿前代码整理
+## 2026-10-24 — English public release
 
-- 从现有研究项目选择分析、校正和绘图源代码；逐文件记录 SHA-256 与原项目相对路径，保留原始内容。
-- 添加中文 README、主要脚本导航、数据来源、本地输入布局、复现准备说明和已知限制。
-- 添加 R 直接依赖与本机版本快照、Python 依赖、路径迁移工具和静态检查工具。
-- 明确历史比较、修正顺序、插补区间解释及样本分母差异。
-- 不包含原始/派生个体数据、论文文件、模型对象或生成图表；不改变任何模型、估计值或论文内容。
+- Translate documentation, source comments, reporting text, and filenames into English, with compatibility mappings for historical names.
+- Update inter-file references, input indexes, and distributed-source checksums.
+- Prepare public repository distribution at the author's request. Historical analyses, numerical specifications, and known scientific limitations are retained.
 
-## 2026-10-17 — 仓库更名
+## 2026-10-17 — Presubmission code packaging
 
-- 仓库名称由 `Data-availability` 改为 `Code-availability`，用于对应论文的 Code availability 声明。
-- 更新 README 中的克隆地址。仓库保持私有，计划于论文投稿后公开。
+- Select analysis, correction, and plotting source code from the existing research project; record original project-relative paths and SHA-256 checksums without changing source contents.
+- Add a Chinese README, script navigation, data-source and local-layout documentation, reproduction instructions, and known limitations.
+- Add direct R dependencies, installed-version snapshots, Python requirements, path migration, and static-checking tools.
+- Clarify historical comparisons, correction precedence, imputation-interval interpretation, and sample-denominator differences.
+- Exclude raw/derived participant data, manuscript files, model objects, and generated figures/tables; preserve models, estimates, and manuscript content.
+
+## 2026-10-17 — Repository rename
+
+- Rename `Data-availability` to `Code-availability` to match the manuscript's Code availability statement.
+- Update the README clone URL. At that time the repository remained private, with public release planned after manuscript submission.

@@ -1,21 +1,21 @@
 # ============================================================================
-# 13_weighted_longitudinal.R —— T06：加权纵向敏感性分析
-# 版本：v1.0（2026-09-20）
-# 输入：
-#   output/04_纵向队列/cohort_change_2026-09-13.rds
-#   output/04_纵向队列/interval_incidence_events_2026-09-20.rds
-# 输出：
-#   output/04_纵向队列/weighted_longitudinal_models_2026-09-20.csv
-#   output/04_纵向队列/weighted_longitudinal_incidence_2026-09-20.csv
-#   output/04_纵向队列/weighted_longitudinal_2026-09-20.md
-#   output/09_图表/FigureS_weighted_sensitivity_2026-09-20.png/.tif
+# 13_weighted_longitudinal.R —— T06: weighted longitudinal sensitivity analysis
+# version: v1.0(2026-09-20)
+# input: 
+#   output/04_longitudinal_cohort/cohort_change_2026-09-13.rds
+#   output/04_longitudinal_cohort/interval_incidence_events_2026-09-20.rds
+# output: 
+#   output/04_longitudinal_cohort/weighted_longitudinal_models_2026-09-20.csv
+#   output/04_longitudinal_cohort/weighted_longitudinal_incidence_2026-09-20.csv
+#   output/04_longitudinal_cohort/weighted_longitudinal_2026-09-20.md
+#   output/09_figures_and_tables/FigureS_weighted_sensitivity_2026-09-20.png/.tif
 #
-# 口径：
-#   主敏感性权重 = 2011 年基线个体权重；
-#   PSU = communityID；
-#   纵向模型 = 2020 终点评定、首次受损 Cox、十年变化线性回归；
-#   同一样本内比较加权与未加权结果，避免把“权重造成样本变化”误当成效应变化。
-#   本脚本只校正基线权重；失访选择 IPW 由 T07 单独完成。
+# definition: 
+#   primary sensitivity weights = 2011 year baseline individual weights; 
+#   PSU = communityID; 
+#   longitudinal model = 2020 endpoint assessment, first impairment Cox, linear regression of ten year change; 
+#   compare weighted and unweighted results within identical samples, avoid interpreting“weight induced sample changes”as changes in effects.
+#   this script adjusts baseline weights only; attrition selection IPW from T07 performed separately.
 # ============================================================================
 
 invisible(try(Sys.setlocale("LC_ALL", "zh_CN.UTF-8"), silent = TRUE))
@@ -23,9 +23,9 @@ if (dir.exists("D:/R/library")) .libPaths(c("D:/R/library", .libPaths()))
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(survey); library(survival) })
 options(survey.lonely.psu = "adjust")
 
-P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/科研/徐中豪")
-OUT <- file.path(P, "output", "04_纵向队列")
-FIG_DIR <- file.path(P, "output", "09_图表")
+P <- Sys.getenv("CHARLS_PROJ", "D:/BaiduSyncdisk/research/Xu_Zhonghao")
+OUT <- file.path(P, "output", "04_longitudinal_cohort")
+FIG_DIR <- file.path(P, "output", "09_figures_and_tables")
 if (!dir.exists(OUT)) dir.create(OUT, recursive = TRUE)
 if (!dir.exists(FIG_DIR)) dir.create(FIG_DIR, recursive = TRUE)
 
@@ -35,7 +35,7 @@ coh <- obj_coh$cohort
 base <- obj_inc$base
 wide_change <- obj_coh$wide
 
-# 基线变量。
+# baseline variables.
 b11 <- coh %>% filter(year == 2011) %>%
   transmute(KEY, age, female, edu_group,
             dep = as.integer(cesd10 >= 10), adl, sleep_h,
@@ -47,16 +47,16 @@ base_model <- base %>% inner_join(b11, by = "KEY") %>% inner_join(
   time = ifelse(is.na(first_index), 9, c(2, 4, 7, 9)[first_index]),
   event = as.integer(!is.na(first_index))
 )
-# 十年变化模型与既有 cohort_risk 主分析保持一致：全部固定队列 n=5,672。
+# ten year change model and existing cohort_risk consistent with primary analysis: entire fixed cohort n=5,672.
 base_all <- b11 %>% inner_join(wide_change %>% select(KEY, delta), by = "KEY")
 stopifnot(nrow(base_model) == nrow(base), nrow(base_all) == nrow(wide_change))
 
-# 权重设计。
+# weight design.
 base_design <- svydesign(ids = ~communityID, weights = ~weight, data = base_model)
 all_design <- svydesign(ids = ~communityID, weights = ~weight, data = base_all)
 weight_diag <- do.call(rbind, lapply(list(
-  list(label = "2011 基线正常者", d = base_model, design = base_design),
-  list(label = "全部固定队列", d = base_all, design = all_design)
+  list(label = "2011 unimpaired baseline participants", d = base_model, design = base_design),
+  list(label = "entire fixed cohort", d = base_all, design = all_design)
 ), function(z) data.frame(
   analysis_sample = z$label,
   n = nrow(z$d),
@@ -68,7 +68,7 @@ weight_diag <- do.call(rbind, lapply(list(
   weight_cv = sd(z$d$weight, na.rm = TRUE) / mean(z$d$weight, na.rm = TRUE)
 )))
 
-# 加权/未加权累积发病。
+# weighted/unweighted cumulative incidence.
 cum_incidence <- data.frame()
 time_points <- c(0, 2, 4, 7, 9)
 first_limits <- c(0L, 1L, 2L, 3L, 4L)
@@ -107,10 +107,10 @@ cum_incidence$weighted_ci_upper_pct <- 100 * cum_incidence$weighted_ci_upper
 cum_incidence$unweighted_cumulative_incidence_pct <- 100 * cum_incidence$unweighted_cumulative_incidence
 cum_incidence$weighted_minus_unweighted_pct <- 100 * cum_incidence$weighted_minus_unweighted
 
-# 加权纵向模型。每个暴露在自己的完整病例样本中比较加权和未加权。
+# weighted longitudinal model.compare weighting within exposure specific complete cases.
 exposures <- c("dep", "adl", "sleep_h", "pain", "pa", "hibp", "diab")
-labels <- c(dep = "抑郁（CES-D-10 ≥10）", adl = "ADL 受限", sleep_h = "睡眠时长（每 1 小时）",
-            pain = "疼痛", pa = "规律体力活动", hibp = "高血压", diab = "糖尿病")
+labels <- c(dep = "depression(CES-D-10 ≥10)", adl = "ADL limited", sleep_h = "sleep duration(per 1 hours)",
+            pain = "pain", pa = "regular physical activity", hibp = "hypertension", diab = "diabetes")
 measure <- c(dep = "OR", adl = "OR", sleep_h = "OR", pain = "OR", pa = "OR", hibp = "OR", diab = "OR")
 
 extract_est <- function(fit, term, type = c("ratio", "beta")) {
@@ -148,13 +148,13 @@ for (e in exposures) {
 
   getw <- function(fit, type) extract_est(fit, e, type)
   model_specs <- list(
-    list(model = "endpoint_2020_logistic", label = "2020 终点评定", measure = "OR",
+    list(model = "endpoint_2020_logistic", label = "2020 endpoint assessment", measure = "OR",
          w = getw(w_logit, "ratio"), u = getw(u_logit, "ratio"),
          n = nrow(d_inc), events = sum(d_inc$endpoint_2020), communities = length(unique(d_inc$communityID))),
-    list(model = "first_event_cox", label = "首次受损 Cox", measure = "HR",
+    list(model = "first_event_cox", label = "first impairment Cox", measure = "HR",
          w = getw(w_cox, "ratio"), u = getw(u_cox, "ratio"),
          n = nrow(d_inc), events = sum(d_inc$event), communities = length(unique(d_inc$communityID))),
-    list(model = "ten_year_change_lm", label = "十年认知变化（固定队列完整病例）", measure = "beta",
+    list(model = "ten_year_change_lm", label = "ten year cognitive change(fixed cohort complete cases)", measure = "beta",
          w = getw(w_lin, "beta"), u = getw(u_lin, "beta"),
          n = nrow(d_change), events = nrow(d_change), communities = length(unique(d_change$communityID)))
   )
@@ -184,7 +184,7 @@ write.csv(models, file.path(OUT, "weighted_longitudinal_models_2026-09-20.csv"),
 write.csv(cum_incidence, file.path(OUT, "weighted_longitudinal_incidence_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(weight_diag, file.path(OUT, "weighted_longitudinal_design_2026-09-20.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
-# 简单森林图：突出加权与未加权的方向和精度变化。
+# simple forest plot: highlight direction and precision changes with weighting.
 draw_weighted_figure <- function() {
   par(mfrow = c(1, 3), mar = c(5, 7, 3, 1), family = "sans")
   model_specs <- list(
@@ -217,65 +217,65 @@ tryCatch({
   dev.off()
 }, error = function(e) { if (length(dev.list())) dev.off() })
 
-# 统计结论。
+# statistical conclusions.
 sig_change <- models %>% filter(weighted_significant != unweighted_significant)
 report <- c(
-  "# T06：加权纵向敏感性分析（2026-09-20）",
+  "# T06: weighted longitudinal sensitivity analysis(2026-09-20)",
   "",
-  "> 权重：2011 年基线个体权重；PSU：communityID。",
-  "> 2020 终点评定与首次受损 Cox 使用基线正常者；十年变化以全部固定队列为分析源，每个暴露使用各自完整病例样本；加权与未加权模型在同一模型内使用同一样本。",
-  "> 本分析只使用 2011 基线权重；五波失访选择 IPW 已由 T07 单独分析。",
+  "> weights: 2011 year baseline individual weights; PSU: communityID.",
+  "> 2020 endpoint assessment and first impairment Cox use baseline unimpaired participants; ten year change uses entire fixed cohort as source, each exposure uses its own complete cases; weighted and unweighted versions of each model use identical samples.",
+  "> analysis uses only 2011 baseline weights; five wave attrition selection IPW already addressed by T07 separate analysis.",
   "",
-  "## 一、权重设计",
+  "## one, weight design",
   "",
-  "| 分析样本 | n | 权重可用 | 社区数 | 设计自由度 | 权重中位数 | 权重CV |",
+  "| analysis sample | n | weights available | number of communities | design degrees of freedom | median weight | weights CV |",
   "|---|---:|---:|---:|---:|---:|---:|",
   paste0("| ", weight_diag$analysis_sample, " | ", weight_diag$n, " | ", weight_diag$weight_n,
          " | ", weight_diag$community_n, " | ", sprintf("%.1f", weight_diag$design_df),
          " | ", sprintf("%.0f", weight_diag$weight_median), " | ", sprintf("%.2f", weight_diag$weight_cv), " |"),
   "",
-  "## 二、加权与未加权累积发病",
+  "## two, weighted and unweighted cumulative incidence",
   "",
-  "| 结局 | 随访年 | 加权累积发病 | 95%CI | 未加权 | 差值 |",
+  "| outcome | follow up year | weighted cumulative incidence | 95%CI | unweighted | difference |",
   "|---|---:|---:|---:|---:|---:|",
-  paste0("| ", ifelse(cum_incidence$outcome == "first_episode", "首次发作", "连续确认"),
+  paste0("| ", ifelse(cum_incidence$outcome == "first_episode", "first onset", "consecutive confirmation"),
          " | ", cum_incidence$time_years, " | ", sprintf("%.1f%%", cum_incidence$weighted_cumulative_incidence_pct),
          " | ", sprintf("%.1f–%.1f%%", cum_incidence$weighted_ci_lower_pct, cum_incidence$weighted_ci_upper_pct),
          " | ", sprintf("%.1f%%", cum_incidence$unweighted_cumulative_incidence_pct),
          " | ", sprintf("%+.1f pp", cum_incidence$weighted_minus_unweighted_pct), " |"),
   "",
-  "## 三、纵向模型：加权与未加权比较",
+  "## three, longitudinal model: weighted versus unweighted comparison",
   "",
-  "| 模型 | 暴露 | n | 效应量 | 加权估计 (95%CI) | 未加权估计 (95%CI) | 方向一致 | 显著性改变 |",
+  "| model | exposure | n | effect estimate | weighted estimate (95%CI) | unweighted estimate (95%CI) | consistent direction | significance change |",
   "|---|---|---:|---:|---:|---:|---|---|",
   paste0("| ", models$model_label, " | ", models$exposure_label, " | ", models$n, " | ", models$effect_measure,
          " | ", sprintf("%.2f (%.2f–%.2f)", models$weighted_est, models$weighted_lower, models$weighted_upper),
          " | ", sprintf("%.2f (%.2f–%.2f)", models$unweighted_est, models$unweighted_lower, models$unweighted_upper),
-         " | ", ifelse(models$direction_consistent, "是", "否"),
-         " | ", ifelse(models$weighted_significant != models$unweighted_significant, "是", "否"), " |"),
+         " | ", ifelse(models$direction_consistent, "yes", "no"),
+         " | ", ifelse(models$weighted_significant != models$unweighted_significant, "yes", "no"), " |"),
   "",
-  "## 四、结论",
+  "## four, conclusion",
   "",
-  sprintf("- 加权与未加权方向不一致的组合：%d/%d。", sum(!models$direction_consistent), nrow(models)),
-  sprintf("- 加权后显著性发生变化：%d/%d。", nrow(sig_change), nrow(models)),
-  sprintf("- 显著性改变组合：%s。", ifelse(nrow(sig_change) == 0, "无", paste0(sig_change$model_label, "×", sig_change$exposure_label, collapse = "；"))),
-  "- 规律体力活动模型因变量缺失较多，其权重敏感性结果应作为探索性分析，不宜单独改写主结论。",
-  "- 抑郁、ADL 等核心结论在基线权重敏感性中方向和显著性基本稳定；疼痛和规律体力活动的边界变化应作为探索性结果报告。",
-  "- 固定队列的失访/幸存者选择不能仅靠 2011 权重解决；T07 已完成失访与 IPW 分析。",
+  sprintf("- combinations with discordant weighted and unweighted directions: %d/%d.", sum(!models$direction_consistent), nrow(models)),
+  sprintf("- significance changed after weighting: %d/%d.", nrow(sig_change), nrow(models)),
+  sprintf("- combinations with significance changes: %s.", ifelse(nrow(sig_change) == 0, "none", paste0(sig_change$model_label, "×", sig_change$exposure_label, collapse = "; "))),
+  "- regular physical activity model has substantial missingness, its weight sensitivity results are exploratory, should not independently alter main conclusions.",
+  "- depression, ADL core conclusions largely retain direction and significance under baseline weighting; borderline changes in pain and regular physical activity are exploratory.",
+  "- fixed cohort attrition/survivor selection cannot be resolved solely by 2011 weights; T07 attrition and analyses completed IPW analysis.",
   "",
-  "## 五、输出文件",
+  "## five, output file",
   "",
   "- `weighted_longitudinal_models_2026-09-20.csv`",
   "- `weighted_longitudinal_incidence_2026-09-20.csv`",
   "- `weighted_longitudinal_design_2026-09-20.csv`",
   "- `weighted_longitudinal_2026-09-20.md`",
-  "- `output/09_图表/FigureS_weighted_sensitivity_2026-09-20.png/.tif`",
+  "- `output/09_figures_and_tables/FigureS_weighted_sensitivity_2026-09-20.png/.tif`",
   "",
-  sprintf("*生成时间：%s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+  sprintf("*generation time: %s*", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
 )
 writeLines(report, file.path(OUT, "weighted_longitudinal_2026-09-20.md"), useBytes = TRUE)
 
-cat("\n========== T06 加权纵向敏感性分析完成 ==========\n")
-cat("固定队列：", nrow(base_model), "；加权模型组合：", nrow(models), "\n", sep = "")
-cat("加权/未加权方向不一致：", sum(!models$direction_consistent), "；显著性变化：", nrow(sig_change), "\n", sep = "")
-cat("主图：", file.path(FIG_DIR, "FigureS_weighted_sensitivity_2026-09-20.png"), "\n", sep = "")
+cat("\n========== T06 weighted longitudinal sensitivity complete ==========\n")
+cat("fixed cohort: ", nrow(base_model), "; weighted model combinations: ", nrow(models), "\n", sep = "")
+cat("weighted/direction differs from unweighted: ", sum(!models$direction_consistent), "; significance changes: ", nrow(sig_change), "\n", sep = "")
+cat("main figure: ", file.path(FIG_DIR, "FigureS_weighted_sensitivity_2026-09-20.png"), "\n", sep = "")
