@@ -2,7 +2,7 @@
 
 ## 1. Environment
 
-The original packaging checks used Windows and R 4.6.1. `environment/r-packages.csv` records installed versions on the packaging date; it does not establish which versions were used in every historical analysis and is not a `renv.lock` covering all transitive dependencies. `install_dependencies.R` installs missing direct dependencies without forcing downgrades. Build a separate isolated environment from the snapshot if exact versions are required.
+The checked environment uses Windows and R 4.6.1. `environment/r-packages.csv` records an installed-package snapshot, not a `renv.lock` covering all transitive dependencies. `install_dependencies.R` installs missing direct dependencies without forcing downgrades. Build a separate isolated environment from the snapshot if exact versions are required.
 
 Python helpers require Python 3.10 or later and use the standard library. The measurement-summary script additionally requires openpyxl; see `requirements.txt`. UTF-8 support is required. Original R scripts retain Windows Chinese locale settings for compatibility with historical data. TIFF rendering requires ragg; some historical figures use SimSun. Adjust locales/fonts on other operating systems and verify the results before assuming equivalent cross-platform behavior.
 
@@ -14,7 +14,7 @@ Copy `config.example.json` to `config.local.json` and supply absolute paths on y
 python tools/prepare_workspace.py --config config.local.json
 ```
 
-The tool copies only text scripts and variable-mapping documentation, replaces known local path prefixes, and writes a preparation manifest. It does not copy, download, or upload data or execute analyses. It stops if a destination source file already has different contents. `source-manifest.csv` verifies the distributed source bytes; prepared scripts have different hashes after path replacement. Original pretranslation sources remain in Git history.
+The tool copies only text scripts and variable-mapping documentation, replaces known local path prefixes, and writes a preparation manifest. It does not copy, download, or upload data or execute analyses. It stops if a destination source file already has different contents. `source-manifest.csv` verifies the distributed source bytes; prepared scripts have different hashes after path replacement.
 
 ## 3. Data and derived inputs
 

@@ -13,4 +13,4 @@ These filenames identify the inputs expected by the study scripts. They do not i
 
 `docs/input-references.csv` is a static index of input expressions, not participant data. See `reproduction.md` for third-round temporary aliases and manual preparation steps.
 
-`.gitignore` excludes common data, model, and figure formats, but ignore rules do not replace inspection before committing. Any format, including CSV, can contain participant information. The repository CSV files contain source manifests, input-expression indexes, compatibility mappings, or dependency version records only.
+`.gitignore` excludes common data, model, and figure formats, but ignore rules do not replace inspection before committing. Any format, including CSV, can contain participant information. The repository CSV files contain source manifests, input-expression indexes, or dependency version records only.
