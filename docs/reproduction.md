@@ -50,6 +50,10 @@ Rscript "E:/memory-reproduction/project/16.manuscript_revision_round_three/_audi
 
 Before execution from the project root, verify inputs, missing-data rules, output locations, and the intended analysis stage. Check sample/event counts, differences between model and score samples, thresholds, and ties. Scripts write and update outputs. Run formal analyses in a separate directory and compare them with frozen results. Do not commit participant-level outputs or model objects to GitHub.
 
-## 5. Validation boundaries
+## 5. F39 subgroup and missingness supplements
+
+The source code for the S37 subgroup statistics and S38 missingness statistics is included in `analysis/revisions/F39_TRIPOD.R`. Run it after the verified five-wave data, development model, and external S0 data are available, then run `F39_check_calibration.R`. See [the F39 reproduction guide](f39-reproduction.md) for exact paths, execution order, output files, and historical consistency checks. These scripts generate statistical tables and reports; they do not insert formatted tables into manuscript Word files.
+
+## 6. Validation boundaries
 
 Release checks cover source integrity, R/Python syntax, workspace preparation, and repository contents. They do not rerun the original statistics, modify the manuscript, or demonstrate clean-environment end-to-end reproduction. See `validation.md` and `known-limitations.md`.

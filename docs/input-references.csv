@@ -177,3 +177,9 @@ analysis/revisions/F36_longitudinal_figures.R,54,"x<-readRDS(file.path(P,'extern
 analysis/revisions/F36_longitudinal_figures.R,68,"cal_het<-read.csv(file.path(P,'output/11_external_validation/A13_calibration_heterogeneity.csv'),check.names=FALSE,fileEncoding='UTF-8-BOM')"
 analysis/revisions/F36_longitudinal_figures.R,76,"readout<-function(n)read.csv(file.path(OUT,n),check.names=FALSE,fileEncoding='UTF-8-BOM')"
 analysis/revisions/F36_longitudinal_figures.R,94,"z<-readRDS(file.path(P,'output/13_A15_sensitivity_analysis/A15_results_2026-09-26.rds'))"
+analysis/revisions/F39_TRIPOD.R,75,"a07 <- readRDS(""D:/BaiduSyncdisk/research/Xu_Zhonghao/output/10_screening_index/screening_index_memory_v3_2026-09-26.rds"")"
+analysis/revisions/F39_TRIPOD.R,80,"w <- readRDS(""D:/BaiduSyncdisk/research/Xu_Zhonghao/output/02_five_wave_data_and_quality_control/waves_cognition_2026-09-13.rds"")"
+analysis/revisions/F39_TRIPOD.R,196,d <- readRDS(ext_paths[[co]])
+analysis/revisions/F39_TRIPOD.R,255,d <- readRDS(ext_paths[[co]])
+analysis/revisions/F39_check_calibration.R,4,"a07 <- readRDS(""D:/BaiduSyncdisk/research/Xu_Zhonghao/output/10_screening_index/screening_index_memory_v3_2026-09-26.rds""); d <- a07$data"
+analysis/revisions/F39_check_calibration.R,16,"note_fun <- function(f){x <- read.csv(f,fileEncoding=""UTF-8"",check.names=FALSE)"

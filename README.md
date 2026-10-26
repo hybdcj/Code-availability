@@ -17,6 +17,7 @@ This repository contains analysis source code, supplementary analyses, dependenc
 | [docs/reproduction.md](docs/reproduction.md) | Environment setup, path migration, and staged execution |
 | [docs/known-limitations.md](docs/known-limitations.md) | Analysis limitations and reproduction requirements |
 | [docs/input-references.csv](docs/input-references.csv) | Locations of data/script reads, obtained by static scanning; not a complete dependency graph |
+| [docs/f39-reproduction.md](docs/f39-reproduction.md) | F39 source provenance and S37/S38 subgroup and missingness generation workflow |
 | `environment/` | Direct R dependencies, version snapshots, Python requirements, and installation script |
 | `tools/` | Source verification, workspace preparation, and R syntax checking |
 | [source-manifest.csv](source-manifest.csv) | Workspace paths, byte counts, and SHA-256 checksums of distributed source files |
