@@ -27,5 +27,6 @@
 | 时段与测量核查 | [F31_时段与测量口径核查.R](../analysis/revisions/F31_时段与测量口径核查.R) | F04 准备表达式及开发模型 |
 | 全人群分母修正 | [F32_全人群入组与分母修正.R](../analysis/revisions/F32_全人群入组与分母修正.R) | 引用 F15 准备表达式；整数评分样本不再额外要求 ADL 完整 |
 | 修订图表 | [F34_更新正文图件.R](../analysis/revisions/F34_更新正文图件.R)、[F34_补充表构建.R](../analysis/revisions/F34_补充表构建.R)、[F36_纵向图件.R](../analysis/revisions/F36_纵向图件.R) | TIFF 图件及原格式表格；依赖已生成结果和部分排版缓存，见限制说明 |
+| TRIPOD亚组与缺失统计（S37/S38） | [F39_TRIPOD.R](../analysis/revisions/F39_TRIPOD.R)，随后运行 [F39_check_calibration.R](../analysis/revisions/F39_check_calibration.R) | 已核验五波数据、冻结开发模型及23生成的外部S0风险集；详见[F39复现说明](f39-reproduction.md) |
 
 路径准备工具会恢复原项目相对布局：`analysis/core/*` → `<project_root>/code/*`；`analysis/revisions/*` → `<project_root>/16.论文修订第三轮/_核查/脚本/*`。这是为了保留原脚本之间的引用关系。

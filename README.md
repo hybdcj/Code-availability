@@ -2,9 +2,9 @@
 
 Analysis code for a memory low-score risk model in community-dwelling middle-aged and older adults, developed in CHARLS and evaluated in HRS, ELSA and SHARE.
 
-本仓库收录论文相关分析源代码、第三轮修正脚本、依赖版本记录和复现准备工具。当前为投稿前私有整理版；作者计划投稿后公开。本仓库不包含参与者数据、模型对象、论文文件或生成的图表。
+本仓库收录论文相关分析源代码、第三轮修正脚本、依赖版本记录和复现准备工具。当前仓库已公开。本仓库不包含参与者数据、模型对象、论文文件或生成的图表。
 
-**开始前请先读 [分析入口](docs/analysis-map.md) 和 [复现说明](docs/reproduction.md)。** 源代码保留原有文件名与内容，内部编号仅用于追溯，不是论文中的研究分组。仓库不是可直接一键重算全部论文结果的流水线；数据授权、路径配置、派生数据和部分历史中间产物需另行准备。
+**开始前请先读 [分析入口](docs/analysis-map.md) 和 [复现说明](docs/reproduction.md)。** 历史源代码保留原有文件名与内容；F39新增脚本仅适配路径与说明，内部编号仅用于追溯，不是论文中的研究分组。仓库不是可直接一键重算全部论文结果的流水线；数据授权、路径配置、派生数据和部分历史中间产物需另行准备。
 
 ## 目录
 
@@ -17,6 +17,7 @@ Analysis code for a memory low-score risk model in community-dwelling middle-age
 | [docs/reproduction.md](docs/reproduction.md) | 环境设置、路径迁移和分阶段执行说明 |
 | [docs/known-limitations.md](docs/known-limitations.md) | 历史分析限制、已修正内容和未完成的复现环节 |
 | [docs/input-references.csv](docs/input-references.csv) | 源代码中读取数据/脚本的位置索引（静态扫描，非完整依赖图） |
+| [docs/f39-reproduction.md](docs/f39-reproduction.md) | F39来源、S37亚组与S38缺失统计的生成流程 |
 | `environment/` | R 直接依赖、版本快照、Python 依赖和安装脚本 |
 | `tools/` | 源文件校验、工作目录准备和 R 语法检查工具 |
 | [source-manifest.csv](source-manifest.csv) | 源脚本相对原项目路径、文件大小和 SHA-256 |
@@ -24,7 +25,7 @@ Analysis code for a memory low-score risk model in community-dwelling middle-age
 ## 最快开始
 
 ```powershell
-git clone https://github.com/hybdcj/Code-availability.git
+git clone --branch Chinese https://github.com/hybdcj/Code-availability.git
 cd Code-availability
 python tools/verify_sources.py
 Copy-Item config.example.json config.local.json
@@ -45,6 +46,6 @@ Rscript tools/check_syntax.R .
 
 ## Data and code availability
 
-Individual-level data are not distributed in this repository. Access to CHARLS, HRS/RAND HRS, ELSA and SHARE/easySHARE data must be obtained from the respective data providers under their applicable conditions. This repository contains analysis source code and reproduction documentation. The repository is currently private and is intended to be made public after manuscript submission.
+Individual-level data are not distributed in this repository. Access to CHARLS, HRS/RAND HRS, ELSA and SHARE/easySHARE data must be obtained from the respective data providers under their applicable conditions. This repository contains analysis source code and reproduction documentation. The repository is publicly accessible.
 
-本次整理完成的验证见 [validation.md](docs/validation.md)。尚未在全新环境中重跑整套模型，依赖快照也不等同于原始分析时的完整锁定环境。未擅自选择开放源代码许可证；公开前由作者确定许可和正式论文引用信息。
+本次整理完成的验证见 [validation.md](docs/validation.md)。尚未在全新环境中重跑整套模型，依赖快照也不等同于原始分析时的完整锁定环境。未擅自选择开放源代码许可证；许可和正式论文引用信息仍待作者确定。

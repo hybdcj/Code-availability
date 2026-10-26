@@ -67,3 +67,5 @@ analysis/revisions/F32_全人群入组与分母修正.R,16.论文修订第三轮
 analysis/revisions/F34_更新正文图件.R,16.论文修订第三轮/_核查/脚本/F34_更新正文图件.R,64c77f188ce556fb3a88181fcd7512c45b242889a0b6c3afc728d7804a6f4828,4707
 analysis/revisions/F34_补充表构建.R,16.论文修订第三轮/_核查/脚本/F34_补充表构建.R,79ec55e38e1f45d57323fa2499114dee6b0f231ef7e701149ff89e919f5d5e62,13900
 analysis/revisions/F36_纵向图件.R,16.论文修订第三轮/_核查/脚本/F36_纵向图件.R,1dca203acbb6d8a469de0166cf7d8a0eea930cea8046f456f3211dff1f3fb254,9441
+analysis/revisions/F39_TRIPOD.R,16.论文修订第三轮/_核查/脚本/F39_TRIPOD.R,62a55d15d1ee7d01ad6c98884ea0aa8e80da5ab8a624c68e24cdf7e12d882502,19423
+analysis/revisions/F39_check_calibration.R,16.论文修订第三轮/_核查/脚本/F39_check_calibration.R,eaf6401e633a1f7213c08183656455c697d897f1c5dd512d936ecdfd7ed8b123,2015
