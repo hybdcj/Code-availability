@@ -30,3 +30,7 @@ Filename prefixes are historical project identifiers. They are not a strict exec
 | TRIPOD subgroup and missingness supplements (S37/S38) | [F39_TRIPOD.R](../analysis/revisions/F39_TRIPOD.R), then [F39_check_calibration.R](../analysis/revisions/F39_check_calibration.R) | Verified five-wave data, frozen development model, and script 23 external S0 risk sets; see [F39 reproduction](f39-reproduction.md) for inputs, outputs, and population definitions |
 
 Workspace preparation maps `analysis/core/*` to `<project_root>/code/*` and `analysis/revisions/*` to `<project_root>/16.manuscript_revision_round_three/_audit/scripts/*`, keeping inter-script references consistent.
+
+## Wave 6 addition (2026-11-16)
+
+See [wave6-reproduction.md](wave6-reproduction.md) for the ordered nine-script pipeline, required raw/derived inputs and interpretation. `analysis/wave6/` sources and English protocol summaries are installed by the existing workspace preparation tool.

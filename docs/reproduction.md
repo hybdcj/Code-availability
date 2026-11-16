@@ -57,3 +57,7 @@ The source code for the S37 subgroup statistics and S38 missingness statistics i
 ## 6. Validation boundaries
 
 Release checks cover source integrity, R/Python syntax, workspace preparation, and repository contents. They do not rerun the original statistics, modify the manuscript, or demonstrate clean-environment end-to-end reproduction. See `validation.md` and `known-limitations.md`.
+
+## 7. Wave 6 temporal validation
+
+See [wave6-reproduction.md](wave6-reproduction.md). These Python analysis modules require NumPy, pandas, SciPy, statsmodels, patsy, matplotlib and pyreadstat in addition to the legacy dependencies. They must run from the prepared workspace, not directly from `analysis/wave6/`.

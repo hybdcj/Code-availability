@@ -49,3 +49,7 @@ Use F24 for screening metrics, F26 for the BDSI implementation, F27 for validati
 Individual-level data are not distributed in this repository. Access to CHARLS, HRS/RAND HRS, ELSA, and SHARE/easySHARE data must be obtained from the respective data providers under their applicable conditions. Analysis source code and reproduction documentation are available at https://github.com/hybdcj/Code-availability.
 
 See [validation.md](docs/validation.md) for software checks and their scope. A complete analysis run in a clean environment has not been verified. Dependency snapshots do not constitute a fully locked environment. Licensing and formal manuscript citation information are not yet provided.
+
+## Wave 6 temporal validation and intercept updating
+
+The [Wave 6 reproduction guide](docs/wave6-reproduction.md) covers QC, the event audit, frozen temporal validation, independent R checks, and cluster-bootstrap optimism correction of the intercept-only update. Sources are in `analysis/wave6/`; install the additional `environment/requirements-wave6.txt` dependencies. The update is internally validated, not independently externally validated.
