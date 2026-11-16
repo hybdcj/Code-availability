@@ -49,3 +49,10 @@ Rscript tools/check_syntax.R .
 Individual-level data are not distributed in this repository. Access to CHARLS, HRS/RAND HRS, ELSA and SHARE/easySHARE data must be obtained from the respective data providers under their applicable conditions. This repository contains analysis source code and reproduction documentation. The repository is publicly accessible.
 
 本次整理完成的验证见 [validation.md](docs/validation.md)。尚未在全新环境中重跑整套模型，依赖快照也不等同于原始分析时的完整锁定环境。未擅自选择开放源代码许可证；许可和正式论文引用信息仍待作者确定。
+
+## 第六期时间迁移与截距更新
+
+新增代码位于 `analysis/wave6/`，覆盖质控、事件审计、冻结模型时间迁移、
+独立R计算核验和截距更新的社区Bootstrap乐观度校正。
+请按[第六期中文复现说明](docs/wave6-reproduction.md)准备输入、安装额外Python依赖并依次执行。
+截距更新已完成内部验证，尚未经独立样本外部验证。

@@ -30,3 +30,10 @@
 | TRIPOD亚组与缺失统计（S37/S38） | [F39_TRIPOD.R](../analysis/revisions/F39_TRIPOD.R)，随后运行 [F39_check_calibration.R](../analysis/revisions/F39_check_calibration.R) | 已核验五波数据、冻结开发模型及23生成的外部S0风险集；详见[F39复现说明](f39-reproduction.md) |
 
 路径准备工具会恢复原项目相对布局：`analysis/core/*` → `<project_root>/code/*`；`analysis/revisions/*` → `<project_root>/16.论文修订第三轮/_核查/脚本/*`。这是为了保留原脚本之间的引用关系。
+
+## 第六期扩展
+
+`analysis/wave6/` 包含9个分析/核验脚本和3份方案摘要。
+按[第六期运行指南](wave6-reproduction.md)执行：质控导出与构建 → 独立质控核验 →
+事件输入导出与审计 → 冻结性能评价与R核验 → 10,000次截距更新Bootstrap与R核验。
+准备工具把脚本放入code及code/_checks，把方案摘要放入对应output目录。

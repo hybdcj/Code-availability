@@ -1,0 +1,16 @@
+invisible(try(Sys.setlocale('LC_ALL','English_United States.utf8'), silent=TRUE))
+suppressPackageStartupMessages(library(pROC))
+out <- 'output/wave6_validation_20261114'
+d <- read.csv(file.path(out,'fouryear_predictions_internal.csv'),colClasses=c(ID='character',communityID='character'))
+p <- read.csv(file.path(out,'performance.csv'));r <- p[p$sample=='year2022',]
+stopifnot(nrow(d)==1188,sum(d$event)==269,length(intersect(d$ID,read.csv('output/wave6_qc_20261113/development_ids_internal.csv',colClasses='character')$KEY))==0)
+a<-as.numeric(auc(roc(d$event,d$p_frozen,direction='<',quiet=TRUE)))
+s<-as.numeric(auc(roc(d$event,d$score,direction='<',quiet=TRUE)))
+f<-glm(event~lp,data=d,family=binomial(),control=glm.control(epsilon=1e-12,maxit=100));fo<-glm(event~offset(lp),data=d,family=binomial(),control=glm.control(epsilon=1e-12,maxit=100))
+updated<-plogis(d$lp+coef(fo)[1])
+v<-c(auc_continuous=a,auc_score=s,offset_alpha=coef(fo)[1],calibration_slope=coef(f)[2],brier_frozen=mean((d$p_frozen-d$event)^2),brier_updated=mean((updated-d$event)^2))
+expected<-unlist(r[c('auc_continuous','auc_score','offset_alpha','calibration_slope','brier_frozen','brier_intercept_updated_apparent')],use.names=FALSE)
+stopifnot(max(abs(v-expected))<1e-7,max(abs(updated-d$p_updated_apparent))<1e-10,abs(mean(updated)-mean(d$event))<1e-9)
+stopifnot(abs(as.numeric(auc(roc(d$event,updated,direction='<',quiet=TRUE)))-a)<1e-12)
+write.csv(data.frame(metric=names(v),R=as.numeric(v),Python=expected,difference=as.numeric(v)-expected),file.path(out,'independent_R_checks.csv'),row.names=FALSE)
+cat('PASS independent pROC AUC (continuous and tied integer scores), glm offset/slope, Brier, unchanged updated AUC, event counts and development exclusion\n')
